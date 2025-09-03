@@ -4,45 +4,45 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AppProvider, useApp } from './contexts/AppContext';
 import Login from './components/Login';
 import Header from './components/Header';
-import StreamView from './components/StreamView';
+import WorkspaceView from './components/WorkspaceView';
 import CommandBar from './components/CommandBar';
-import BrainInterface from './components/BrainInterface';
-import { Brain, Stream } from './types';
+import LibraryInterface from './components/LibraryInterface';
+import { Library, Workspace } from './types';
 import api from './services/api';
 
 const AppContent: React.FC = () => {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
-  const { selectedBrain, currentStream, setBrain, setStream, setError } = useApp();
-  const [showBrainInterface, setShowBrainInterface] = React.useState(false);
-  const [brainInterfaceInitialBrain, setBrainInterfaceInitialBrain] = React.useState<Brain | null>(null);
+  const { selectedLibrary, currentWorkspace, setLibrary, setWorkspace, setError } = useApp();
+  const [showLibraryInterface, setShowLibraryInterface] = React.useState(false);
+  const [libraryInterfaceInitialLibrary, setLibraryInterfaceInitialLibrary] = React.useState<Library | null>(null);
 
-  const handleBrainSelect = (brain: Brain) => {
-    setBrain(brain);
-    setStream(null); // Clear current stream when changing brains
+  const handleLibrarySelect = (library: Library) => {
+    setLibrary(library);
+    setWorkspace(null); // Clear current workspace when changing libraries
   };
 
-  const handleStreamSelect = (stream: Stream) => {
-    setStream(stream);
-    setShowBrainInterface(false); // Close brain interface when stream is selected
+  const handleWorkspaceSelect = (workspace: Workspace) => {
+    setWorkspace(workspace);
+    setShowLibraryInterface(false); // Close library interface when workspace is selected
   };
 
-  const handleNewStream = async () => {
-    if (!selectedBrain) return;
+  const handleNewWorkspace = async () => {
+    if (!selectedLibrary) return;
 
     try {
-      const title = prompt('Enter stream title:');
-      if (!title?.trim()) return;
+      const name = prompt('Enter workspace name:');
+      if (!name?.trim()) return;
 
-      const response = await api.post('/streams', {
-        brainId: selectedBrain.id,
-        name: title.trim(),
+      const response = await api.post('/workspaces', {
+        libraryId: selectedLibrary.id,
+        name: name.trim(),
         isFavorited: false
       });
 
-      const newStream = response.data.stream;
-      setStream(newStream);
+      const newWorkspace = response.data.workspace;
+      setWorkspace(newWorkspace);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to create stream';
+      const errorMessage = err.response?.data?.message || 'Failed to create workspace';
       setError(errorMessage);
     }
   };
@@ -77,57 +77,57 @@ const AppContent: React.FC = () => {
   return (
     <div className="app">
       <Header
-        onBrainSelect={handleBrainSelect}
-        onStreamSelect={handleStreamSelect}
-        onNewStream={handleNewStream}
-        onOpenBrainInterface={() => {
-          setBrainInterfaceInitialBrain(null);
-          setShowBrainInterface(true);
+        onLibrarySelect={handleLibrarySelect}
+        onWorkspaceSelect={handleWorkspaceSelect}
+        onNewWorkspace={handleNewWorkspace}
+        onOpenLibraryInterface={() => {
+          setLibraryInterfaceInitialLibrary(null);
+          setShowLibraryInterface(true);
         }}
-        onOpenCurrentBrainManagement={() => {
-          setBrainInterfaceInitialBrain(selectedBrain);
-          setShowBrainInterface(true);
+        onOpenCurrentLibraryManagement={() => {
+          setLibraryInterfaceInitialLibrary(selectedLibrary);
+          setShowLibraryInterface(true);
         }}
       />
       
       <main className="app-main">
         <div className="app-content">
-          {showBrainInterface ? (
-            <BrainInterface
+          {showLibraryInterface ? (
+            <LibraryInterface
               isOpen={true}
               onClose={() => {
-                setShowBrainInterface(false);
-                setBrainInterfaceInitialBrain(null);
+                setShowLibraryInterface(false);
+                setLibraryInterfaceInitialLibrary(null);
               }}
-              onBrainSelect={handleBrainSelect}
-              onStreamSelect={handleStreamSelect}
-              initialBrain={brainInterfaceInitialBrain}
+              onLibrarySelect={handleLibrarySelect}
+              onWorkspaceSelect={handleWorkspaceSelect}
+              initialLibrary={libraryInterfaceInitialLibrary}
             />
-          ) : selectedBrain && currentStream ? (
-            <StreamView
-              streamId={currentStream.id}
-              brainId={selectedBrain.id}
+          ) : selectedLibrary && currentWorkspace ? (
+            <WorkspaceView
+              workspaceId={currentWorkspace.id}
+              libraryId={selectedLibrary.id}
             />
-          ) : selectedBrain ? (
+          ) : selectedLibrary ? (
             <div className="text-center" style={{ padding: '2rem' }}>
-              <p>Select a stream or create a new one to get started.</p>
+              <p>Select a workspace or create a new one to get started.</p>
               <button 
-                onClick={handleNewStream}
+                onClick={handleNewWorkspace}
                 className="btn btn-primary"
               >
-                Create New Stream
+                Create New Workspace
               </button>
             </div>
           ) : (
             <div className="text-center" style={{ padding: '2rem' }}>
-              <p>Loading your brains...</p>
+              <p>Loading your librarys...</p>
             </div>
           )}
         </div>
       </main>
 
       <CommandBar
-        streamId={currentStream?.id}
+        workspaceId={currentWorkspace?.id}
       />
     </div>
   );

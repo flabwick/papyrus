@@ -1,9 +1,9 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
-import { Brain, Stream, AppState } from '../types';
+import { Library, Workspace, AppState } from '../types';
 
 interface AppContextType extends AppState {
-  setBrain: (brain: Brain | null) => void;
-  setStream: (stream: Stream | null) => void;
+  setLibrary: (library: Library | null) => void;
+  setWorkspace: (workspace: Workspace | null) => void;
   toggleAIContext: (cardId: string) => void;
   clearAIContext: () => void;
   setLoading: (loading: boolean) => void;
@@ -21,16 +21,16 @@ export const useApp = () => {
 };
 
 type AppAction =
-  | { type: 'SET_BRAIN'; payload: Brain | null }
-  | { type: 'SET_STREAM'; payload: Stream | null }
+  | { type: 'SET_BRAIN'; payload: Library | null }
+  | { type: 'SET_WORKSPACE'; payload: Workspace | null }
   | { type: 'TOGGLE_AI_CONTEXT'; payload: string }
   | { type: 'CLEAR_AI_CONTEXT' }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null };
 
 const initialState: AppState = {
-  selectedBrain: null,
-  currentStream: null,
+  selectedLibrary: null,
+  currentWorkspace: null,
   aiContextCards: [],
   isLoading: false,
   error: null,
@@ -41,13 +41,13 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
     case 'SET_BRAIN':
       return {
         ...state,
-        selectedBrain: action.payload,
-        currentStream: null, // Clear stream when changing brains
+        selectedLibrary: action.payload,
+        currentWorkspace: null, // Clear workspace when changing librarys
       };
-    case 'SET_STREAM':
+    case 'SET_WORKSPACE':
       return {
         ...state,
-        currentStream: action.payload,
+        currentWorkspace: action.payload,
       };
     case 'TOGGLE_AI_CONTEXT':
       const cardId = action.payload;
@@ -85,12 +85,12 @@ interface AppProviderProps {
 export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
-  const setBrain = (brain: Brain | null) => {
-    dispatch({ type: 'SET_BRAIN', payload: brain });
+  const setLibrary = (library: Library | null) => {
+    dispatch({ type: 'SET_BRAIN', payload: library });
   };
 
-  const setStream = (stream: Stream | null) => {
-    dispatch({ type: 'SET_STREAM', payload: stream });
+  const setWorkspace = (workspace: Workspace | null) => {
+    dispatch({ type: 'SET_WORKSPACE', payload: workspace });
   };
 
   const toggleAIContext = (cardId: string) => {
@@ -111,8 +111,8 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
 
   const value: AppContextType = {
     ...state,
-    setBrain,
-    setStream,
+    setLibrary,
+    setWorkspace,
     toggleAIContext,
     clearAIContext,
     setLoading,

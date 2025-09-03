@@ -1,4 +1,4 @@
-const Brain = require('../../src/models/Brain');
+const Library = require('../../src/models/Library');
 const { ensureAuthentication } = require('../utils/auth');
 
 /**
@@ -6,66 +6,66 @@ const { ensureAuthentication } = require('../utils/auth');
  */
 
 /**
- * Sync a specific brain
+ * Sync a specific library
  */
-async function syncBrain(brainName) {
+async function syncLibrary(libraryName) {
   const user = await ensureAuthentication();
   
-  const brain = await Brain.findByUserAndName(user.id, brainName);
-  if (!brain) {
-    throw new Error(`Brain '${brainName}' not found`);
+  const library = await Library.findByUserAndName(user.id, libraryName);
+  if (!library) {
+    throw new Error(`Library '${libraryName}' not found`);
   }
   
-  const filesProcessed = await brain.forceSync();
+  const filesProcessed = await library.forceSync();
   
   return {
-    brainName: brain.name,
+    libraryName: library.name,
     filesProcessed,
     syncedAt: new Date().toISOString()
   };
 }
 
 /**
- * Sync all user's brains
+ * Sync all user's libraries
  */
 async function syncAll() {
   const user = await ensureAuthentication();
   
-  const brains = await Brain.findByUserId(user.id);
+  const libraries = await Library.findByUserId(user.id);
   let totalFilesProcessed = 0;
   
-  for (const brain of brains) {
+  for (const library of libraries) {
     try {
-      const filesProcessed = await brain.forceSync();
+      const filesProcessed = await library.forceSync();
       totalFilesProcessed += filesProcessed;
     } catch (error) {
-      console.error(`Failed to sync brain '${brain.name}': ${error.message}`);
+      console.error(`Failed to sync library '${library.name}': ${error.message}`);
     }
   }
   
   return {
-    brainsProcessed: brains.length,
+    librariesProcessed: libraries.length,
     filesProcessed: totalFilesProcessed,
     syncedAt: new Date().toISOString()
   };
 }
 
 /**
- * Get sync status for all brains
+ * Get sync status for all libraries
  */
 async function getSyncStatus() {
   const user = await ensureAuthentication();
   
-  const brains = await Brain.findByUserId(user.id);
+  const libraries = await Library.findByUserId(user.id);
   const status = [];
   
-  for (const brain of brains) {
-    const brainData = await brain.toJSON();
+  for (const library of libraries) {
+    const libraryData = await library.toJSON();
     
     // Check if any files are out of sync
-    const { scanBrainFiles } = require('../../src/utils/fileSystem');
-    const fsFiles = await scanBrainFiles(brain.folderPath);
-    const dbCards = await brain.getCards();
+    const { scanLibraryFiles } = require('../../src/utils/fileSystem');
+    const fsFiles = await scanLibraryFiles(library.folderPath);
+    const dbCards = await library.getCards();
     
     const filesOutOfSync = [];
     const missingCards = [];
@@ -88,7 +88,7 @@ async function getSyncStatus() {
     ).map(card => card.title);
     
     status.push({
-      ...brainData,
+      ...libraryData,
       syncStatus: {
         totalFsFiles: fsFiles.length,
         totalDbCards: dbCards.length,
@@ -120,33 +120,33 @@ async function forceSyncWatcher() {
     throw new Error('File watcher is not running');
   }
   
-  // Get all users and sync their brains
+  // Get all users and sync their libraries
   const User = require('../../src/models/User');
   const users = await User.findAll();
   
   let totalSynced = 0;
   
   for (const user of users) {
-    const brains = await Brain.findByUserId(user.id);
+    const libraries = await Library.findByUserId(user.id);
     
-    for (const brain of brains) {
+    for (const library of libraries) {
       try {
-        await fileWatcher.forceSyncBrain(user.username, brain.name);
+        await fileWatcher.forceSyncLibrary(user.username, library.name);
         totalSynced++;
       } catch (error) {
-        console.error(`Failed to sync ${user.username}/${brain.name}: ${error.message}`);
+        console.error(`Failed to sync ${user.username}/${library.name}: ${error.message}`);
       }
     }
   }
   
   return {
-    totalBrainsSynced: totalSynced,
+    totalLibrarysSynced: totalSynced,
     syncedAt: new Date().toISOString()
   };
 }
 
 module.exports = {
-  syncBrain,
+  syncLibrary,
   syncAll,
   getSyncStatus,
   forceSyncWatcher

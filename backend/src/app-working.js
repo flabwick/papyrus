@@ -160,12 +160,12 @@ try {
   console.log('📚 Loading application routes...');
   app.use('/api/auth', require('./routes/auth'));
   console.log('✅ Auth routes loaded');
-  app.use('/api/brains', require('./routes/brains'));
-  console.log('✅ Brain routes loaded');
-  app.use('/api/cards', require('./routes/cards'));
+  app.use('/api/libraries', require('./routes/libraries'));
+  console.log('✅ Library routes loaded');
+  app.use('/api/pages', require('./routes/pages'));
   console.log('✅ Card routes loaded');
-  app.use('/api/streams', require('./routes/streams'));
-  console.log('✅ Stream routes loaded');
+  app.use('/api/workspaces', require('./routes/workspaces'));
+  console.log('✅ Workspace routes loaded');
   app.use('/api/ai', require('./routes/ai'));
   console.log('✅ AI routes loaded');
 } catch (error) {

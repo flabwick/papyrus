@@ -21,7 +21,7 @@ async function runMigration() {
     const result = await client.query(`
       SELECT table_name 
       FROM information_schema.tables 
-      WHERE table_schema = 'public' AND table_name IN ('users', 'brains', 'cards')
+      WHERE table_schema = 'public' AND table_name IN ('users', 'libraries', 'cards')
     `);
 
     if (result.rows.length > 0) {

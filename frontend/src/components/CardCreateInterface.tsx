@@ -3,13 +3,13 @@ import { Card as CardType } from '../types';
 import api from '../services/api';
 
 interface CardCreateInterfaceProps {
-  brainId: string;
+  libraryId: string;
   onCardCreated: (card: CardType) => void;
   onCancel: () => void;
 }
 
 const CardCreateInterface: React.FC<CardCreateInterfaceProps> = ({
-  brainId,
+  libraryId,
   onCardCreated,
   onCancel
 }) => {
@@ -26,11 +26,11 @@ const CardCreateInterface: React.FC<CardCreateInterfaceProps> = ({
       setTitleError('');
       setIsTitleValid(true);
     }
-  }, [title, brainId]);
+  }, [title, libraryId]);
 
   const checkTitleExists = async () => {
     try {
-      const response = await api.get(`/brains/${brainId}/cards/check-title`, {
+      const response = await api.get(`/librarys/${libraryId}/cards/check-title`, {
         params: { title: title.trim() }
       });
       
@@ -65,7 +65,7 @@ const CardCreateInterface: React.FC<CardCreateInterfaceProps> = ({
       const response = await api.post('/cards', {
         title: title.trim(),
         content: content.trim(),
-        brainId: brainId
+        libraryId: libraryId
       });
 
       const newCard = response.data.card;
@@ -101,7 +101,7 @@ const CardCreateInterface: React.FC<CardCreateInterfaceProps> = ({
       <div className="card-header">
         <h3 className="card-title">Create New Card</h3>
         <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '0.25rem' }}>
-          Create a new card in this brain and add it to the current stream
+          Create a new card in this library and add it to the current stream
         </div>
       </div>
       

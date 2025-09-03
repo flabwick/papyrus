@@ -13,8 +13,8 @@ const path = require('path');
 const pool = new Pool({
     host: '/var/run/postgresql',  // Use socket directory
     port: 5433,
-    database: 'brain6',
-    user: 'brain6_user',
+    database: 'papyrus',
+    user: 'papyrus_user',
     password: 'jewsincanoes'
 });
 
@@ -115,7 +115,7 @@ async function runMigration() {
         console.log('🧪 Testing constraint validation...');
         try {
             await client.query(`
-                INSERT INTO cards (brain_id, title, card_type) 
+                INSERT INTO cards (library_id, title, card_type) 
                 VALUES ('${require('crypto').randomUUID()}', 'test', 'invalid_type')
             `);
             console.log('❌ Constraint validation failed - invalid types accepted');

@@ -10,8 +10,8 @@ export interface User {
   updatedAt: string;
 }
 
-// Brain types
-export interface Brain {
+// Library types
+export interface Library {
   id: string;
   userId: string;
   title: string;
@@ -24,7 +24,7 @@ export interface Brain {
 // Card types
 export interface Card {
   id: string;
-  brainId: string;
+  libraryId: string;
   title: string | null;
   displayTitle: string; // Title or "Click to add title..." for unsaved cards
   contentPreview: string; // First 500 characters for quick display
@@ -37,11 +37,11 @@ export interface Card {
   content?: string; // Full content (only included when specifically requested)
   // Card Type System fields (optional for backward compatibility)
   cardType?: 'saved' | 'file' | 'unsaved';
-  isBrainWide?: boolean;
-  streamSpecificId?: string;
+  isLibraryWide?: boolean;
+  workspaceSpecificId?: string;
   fileId?: string;
   hasTitle?: boolean;
-  isSavedToBrain?: boolean;
+  isSavedToLibrary?: boolean;
   canBeInAIContext?: boolean;
   typeInfo?: {
     icon: string;
@@ -59,20 +59,20 @@ export interface CardVersion {
   createdAt: string;
 }
 
-// Stream types
-export interface Stream {
+// Workspace types
+export interface Workspace {
   id: string;
-  brainId: string;
+  libraryId: string;
   title: string;
   isFavorited: boolean;
   createdAt: string;
   lastAccessedAt: string;
 }
 
-export interface StreamCard {
-  // Stream card metadata
-  id?: string; // Stream card ID (may not always be present)
-  streamId?: string;
+export interface WorkspaceCard {
+  // Workspace card metadata
+  id?: string; // Workspace card ID (may not always be present)
+  workspaceId?: string;
   cardId?: string;
   position: number;
   isInAIContext: boolean;
@@ -80,8 +80,8 @@ export interface StreamCard {
   addedAt: string;
   depth: number;
   
-  // Card data (merged in when fetching stream cards)
-  brainId: string;
+  // Card data (merged in when fetching workspace cards)
+  libraryId: string;
   title: string | null;
   displayTitle: string;
   contentPreview: string;
@@ -94,11 +94,11 @@ export interface StreamCard {
   content?: string;
   // Card Type System fields (optional for backward compatibility)
   cardType?: 'saved' | 'file' | 'unsaved';
-  isBrainWide?: boolean;
-  streamSpecificId?: string;
+  isLibraryWide?: boolean;
+  workspaceSpecificId?: string;
   fileId?: string;
   hasTitle?: boolean;
-  isSavedToBrain?: boolean;
+  isSavedToLibrary?: boolean;
   canBeInAIContext?: boolean;
   typeInfo?: {
     icon: string;
@@ -131,8 +131,8 @@ export interface AuthState {
 
 // UI State types
 export interface AppState {
-  selectedBrain: Brain | null;
-  currentStream: Stream | null;
+  selectedLibrary: Library | null;
+  currentWorkspace: Workspace | null;
   aiContextCards: string[]; // Array of card IDs
   isLoading: boolean;
   error: string | null;

@@ -1,9 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const Stream = require('../models/Stream');
-const StreamCard = require('../models/StreamCard');
+const StreamPage = require('../models/StreamPage');
 const Brain = require('../models/Brain');
-const Card = require('../models/Card');
+const Page = require('../models/Page');
 const StreamManager = require('../services/streamManager');
 const { requireAuth } = require('../middleware/auth');
 
@@ -188,7 +188,7 @@ router.post('/', async (req, res) => {
 
 /**
  * GET /api/streams/:id
- * Get specific stream with cards
+ * Get specific stream with pages
  */
 router.get('/:id', async (req, res) => {
   try {
@@ -206,7 +206,7 @@ router.get('/:id', async (req, res) => {
     await validateStreamOwnership(id, req.session.userId);
     
     // Get stream with full details
-    const streamData = await StreamManager.getStreamWithCards(id, includeContent === 'true');
+    const streamData = await StreamManager.getStreamWithPages(id, includeContent === 'true');
     
     res.json({
       stream: streamData
@@ -389,10 +389,10 @@ router.post('/:id/access', async (req, res) => {
 });
 
 /**
- * GET /api/streams/:id/cards
- * Get cards in stream with ordering
+ * GET /api/streams/:id/pages
+ * Get pages in stream with ordering
  */
-router.get('/:id/cards', async (req, res) => {
+router.get('/:id/pages', async (req, res) => {
   try {
     const { id } = req.params;
     
@@ -406,27 +406,27 @@ router.get('/:id/cards', async (req, res) => {
     // Verify ownership
     await validateStreamOwnership(id, req.session.userId);
     
-    // Get mixed stream items (both cards and files)
+    // Get mixed stream items (both pages and files)
     const StreamFile = require('../models/StreamFile');
     const items = await StreamFile.getStreamItems(id);
-    const aiContextCards = await StreamCard.getAIContextCards(id);
+    const aiContextPages = await StreamPage.getAIContextPages(id);
     
-    // Separate cards and files for backwards compatibility
-    const cards = items.filter(item => item.itemType === 'card');
+    // Separate pages and files for backwards compatibility
+    const pages = items.filter(item => item.itemType === 'page');
     const files = items.filter(item => item.itemType === 'file');
     
     res.json({
-      items, // Mixed array of cards and files in position order
-      cards, // Just cards (for backwards compatibility)
+      items, // Mixed array of pages and files in position order
+      pages, // Just pages (for backwards compatibility)
       files, // Just files
-      aiContextCards,
-      count: cards.length,
-      aiContextCount: aiContextCards.length,
+      aiContextPages,
+      count: pages.length,
+      aiContextCount: aiContextPages.length,
       streamId: id
     });
 
   } catch (error) {
-    console.error('❌ Get stream cards error:', error);
+    console.error('❌ Get stream pages error:', error);
     if (error.message.includes('not found') || error.message.includes('Access denied')) {
       return res.status(error.message.includes('Access denied') ? 403 : 404).json({
         error: error.message.includes('Access denied') ? 'Access denied' : 'Not found',
@@ -434,20 +434,20 @@ router.get('/:id/cards', async (req, res) => {
       });
     }
     res.status(500).json({
-      error: 'Failed to retrieve stream cards',
-      message: 'An error occurred while fetching stream cards'
+      error: 'Failed to retrieve stream pages',
+      message: 'An error occurred while fetching stream pages'
     });
   }
 });
 
 /**
- * POST /api/streams/:id/cards
- * Add card to stream
+ * POST /api/streams/:id/pages
+ * Add page to stream
  */
-router.post('/:id/cards', async (req, res) => {
+router.post('/:id/pages', async (req, res) => {
   try {
     const { id } = req.params;
-    const { cardId, position, depth = 0, isInAIContext = false, isCollapsed = false } = req.body;
+    const { pageId, position, depth = 0, isInAIContext = false, isCollapsed = false } = req.body;
     
     if (!validateUUID(id)) {
       return res.status(400).json({
@@ -456,33 +456,33 @@ router.post('/:id/cards', async (req, res) => {
       });
     }
     
-    if (!cardId || !validateUUID(cardId)) {
+    if (!pageId || !validateUUID(pageId)) {
       return res.status(400).json({
-        error: 'Invalid card ID',
-        message: 'Valid card ID is required'
+        error: 'Invalid page ID',
+        message: 'Valid page ID is required'
       });
     }
     
     // Verify ownership
     await validateStreamOwnership(id, req.session.userId);
     
-    // Add card to stream
-    const result = await StreamManager.addCardToStream(id, cardId, position, depth, {
+    // Add page to stream
+    const result = await StreamManager.addPageToStream(id, pageId, position, depth, {
       isInAIContext,
       isCollapsed
     });
     
     res.status(201).json({
       ...result,
-      message: 'Card added to stream successfully'
+      message: 'Page added to stream successfully'
     });
 
   } catch (error) {
-    console.error('❌ Add card to stream error:', error);
+    console.error('❌ Add page to stream error:', error);
     
     if (error.message.includes('already exists')) {
       return res.status(409).json({
-        error: 'Card already in stream',
+        error: 'Page already in stream',
         message: error.message
       });
     }
@@ -495,25 +495,25 @@ router.post('/:id/cards', async (req, res) => {
     }
     
     res.status(500).json({
-      error: 'Failed to add card to stream',
-      message: 'An error occurred while adding the card'
+      error: 'Failed to add page to stream',
+      message: 'An error occurred while adding the page'
     });
   }
 });
 
 /**
- * PUT /api/streams/:id/cards/:cardId
- * Update card state in stream
+ * PUT /api/streams/:id/pages/:pageId
+ * Update page state in stream
  */
-router.put('/:id/cards/:cardId', async (req, res) => {
+router.put('/:id/pages/:pageId', async (req, res) => {
   try {
-    const { id, cardId } = req.params;
+    const { id, pageId } = req.params;
     const { position, depth, isInAIContext, isCollapsed } = req.body;
     
-    if (!validateUUID(id) || !validateUUID(cardId)) {
+    if (!validateUUID(id) || !validateUUID(pageId)) {
       return res.status(400).json({
         error: 'Invalid ID',
-        message: 'Stream ID and card ID must be valid UUIDs'
+        message: 'Stream ID and page ID must be valid UUIDs'
       });
     }
     
@@ -522,10 +522,10 @@ router.put('/:id/cards/:cardId', async (req, res) => {
     
     // Handle position changes separately from state changes
     if (position !== undefined) {
-      const result = await StreamManager.moveCard(id, cardId, position, depth);
+      const result = await StreamManager.movePage(id, pageId, position, depth);
       return res.json({
         ...result,
-        message: 'Card position updated successfully'
+        message: 'Page position updated successfully'
       });
     }
     
@@ -542,15 +542,15 @@ router.put('/:id/cards/:cardId', async (req, res) => {
       });
     }
     
-    const streamCard = await StreamCard.updateCardState(id, cardId, updates);
+    const streamPage = await StreamPage.updatePageState(id, pageId, updates);
     
     res.json({
-      streamCard: streamCard,
-      message: 'Card state updated successfully'
+      streamPage: streamPage,
+      message: 'Page state updated successfully'
     });
 
   } catch (error) {
-    console.error('❌ Update card in stream error:', error);
+    console.error('❌ Update page in stream error:', error);
     if (error.message.includes('not found') || error.message.includes('Access denied')) {
       return res.status(error.message.includes('Access denied') ? 403 : 404).json({
         error: error.message.includes('Access denied') ? 'Access denied' : 'Not found',
@@ -558,47 +558,47 @@ router.put('/:id/cards/:cardId', async (req, res) => {
       });
     }
     res.status(500).json({
-      error: 'Failed to update card in stream',
-      message: 'An error occurred while updating the card'
+      error: 'Failed to update page in stream',
+      message: 'An error occurred while updating the page'
     });
   }
 });
 
 /**
- * DELETE /api/streams/:id/cards/:cardId
- * Remove card from stream
+ * DELETE /api/streams/:id/pages/:pageId
+ * Remove page from stream
  */
-router.delete('/:id/cards/:cardId', async (req, res) => {
+router.delete('/:id/pages/:pageId', async (req, res) => {
   try {
-    const { id, cardId } = req.params;
+    const { id, pageId } = req.params;
     
-    if (!validateUUID(id) || !validateUUID(cardId)) {
+    if (!validateUUID(id) || !validateUUID(pageId)) {
       return res.status(400).json({
         error: 'Invalid ID',
-        message: 'Stream ID and card ID must be valid UUIDs'  
+        message: 'Stream ID and page ID must be valid UUIDs'  
       });
     }
     
     // Verify ownership
     await validateStreamOwnership(id, req.session.userId);
     
-    // Remove card from stream
-    const result = await StreamManager.removeCardFromStream(id, cardId);
+    // Remove page from stream
+    const result = await StreamManager.removePageFromStream(id, pageId);
     
     if (!result.removed) {
       return res.status(404).json({
-        error: 'Card not found in stream',
-        message: 'The card is not in this stream'
+        error: 'Page not found in stream',
+        message: 'The page is not in this stream'
       });
     }
     
     res.json({
       ...result,
-      message: 'Card removed from stream successfully'
+      message: 'Page removed from stream successfully'
     });
 
   } catch (error) {
-    console.error('❌ Remove card from stream error:', error);
+    console.error('❌ Remove page from stream error:', error);
     if (error.message.includes('not found') || error.message.includes('Access denied')) {
       return res.status(error.message.includes('Access denied') ? 403 : 404).json({
         error: error.message.includes('Access denied') ? 'Access denied' : 'Not found',
@@ -606,8 +606,8 @@ router.delete('/:id/cards/:cardId', async (req, res) => {
       });
     }
     res.status(500).json({
-      error: 'Failed to remove card from stream',
-      message: 'An error occurred while removing the card'
+      error: 'Failed to remove page from stream',
+      message: 'An error occurred while removing the page'
     });
   }
 });
@@ -673,10 +673,10 @@ router.post('/:id/duplicate', async (req, res) => {
 });
 
 /**
- * GET /api/streams/search/cards
- * Search cards for adding to streams
+ * GET /api/streams/search/pages
+ * Search pages for adding to streams
  */
-router.get('/search/cards', async (req, res) => {
+router.get('/search/pages', async (req, res) => {
   try {
     const { q: query, brainId, includeOtherBrains = 'true' } = req.query;
     
@@ -698,8 +698,8 @@ router.get('/search/cards', async (req, res) => {
     // Verify brain ownership
     await validateBrainOwnership(brainId, req.session.userId);
     
-    // Search cards
-    const results = await StreamManager.searchCardsForStream(
+    // Search pages
+    const results = await StreamManager.searchPagesForStream(
       brainId, 
       query.trim(), 
       includeOtherBrains === 'true',
@@ -709,7 +709,7 @@ router.get('/search/cards', async (req, res) => {
     res.json(results);
 
   } catch (error) {
-    console.error('❌ Search cards error:', error);
+    console.error('❌ Search pages error:', error);
     if (error.message.includes('not found') || error.message.includes('Access denied')) {
       return res.status(error.message.includes('Access denied') ? 403 : 404).json({
         error: error.message.includes('Access denied') ? 'Access denied' : 'Not found',
@@ -717,8 +717,8 @@ router.get('/search/cards', async (req, res) => {
       });
     }
     res.status(500).json({
-      error: 'Failed to search cards',
-      message: 'An error occurred while searching cards'
+      error: 'Failed to search pages',
+      message: 'An error occurred while searching pages'
     });
   }
 });

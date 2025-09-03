@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import api from '../services/api';
 
 interface GenerateInterfaceProps {
-  brainId: string;
+  libraryId: string;
   position: number;
   onGenerate: (prompt: string, model: string, position: number) => void;
   onCancel: () => void;
@@ -10,7 +10,7 @@ interface GenerateInterfaceProps {
 }
 
 const GenerateInterface: React.FC<GenerateInterfaceProps> = ({
-  brainId,
+  libraryId,
   position,
   onGenerate,
   onCancel,

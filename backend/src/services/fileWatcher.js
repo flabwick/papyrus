@@ -3,9 +3,9 @@ const path = require('path');
 const fs = require('fs-extra');
 const { STORAGE_BASE, calculateFileHash, getFileStats } = require('../utils/fileSystem');
 const { query } = require('../models/database');
-const Brain = require('../models/Brain');
-const Card = require('../models/Card');
-const cardProcessor = require('./cardProcessor');
+const Library = require('../models/Library');
+const Page = require('../models/Page');
+const pageProcessor = require('./pageProcessor');
 const linkParser = require('./linkParser');
 
 /**
@@ -156,22 +156,22 @@ class FileWatcher {
   }
 
   /**
-   * Parse file path to extract user, brain, and file information
+   * Parse file path to extract user, library, and file information
    */
   parseFilePath(filePath) {
     // Normalize path
     const relativePath = path.relative(STORAGE_BASE, filePath);
     const parts = relativePath.split(path.sep);
 
-    // Expected structure: username/brains/brain-name/cards|files/filename
-    // or username/brains/brain-name/files/covers/filename (ignore covers)
+    // Expected structure: username/libraries/library-name/pages|files/filename
+    // or username/libraries/library-name/files/covers/filename (ignore covers)
     if (parts.length < 4) {
-      return null; // Not deep enough to be a card or file
+      return null; // Not deep enough to be a page or file
     }
 
-    const [username, brainsDir, brainName, fileType, ...fileNameParts] = parts;
+    const [username, librariesDir, libraryName, fileType, ...fileNameParts] = parts;
 
-    if (brainsDir !== 'brains' || !['cards', 'files'].includes(fileType)) {
+    if (librariesDir !== 'libraries' || !['pages', 'files'].includes(fileType)) {
       return null; // Not in the right directory structure
     }
 
@@ -187,8 +187,8 @@ class FileWatcher {
 
     return {
       username,
-      brainName,
-      fileType, // 'cards' or 'files'
+      libraryName,
+      fileType, // 'pages' or 'files'
       fileName,
       fullPath: filePath
     };
@@ -206,44 +206,44 @@ class FileWatcher {
       }
 
       // Check if this file type can be processed
-      if (!cardProcessor.canProcess(filePath)) {
+      if (!pageProcessor.canProcess(filePath)) {
         console.log(`⚠️  File type not supported for processing: ${filePath}`);
         return;
       }
 
-      // Find brain
-      const brainResult = await query(`
+      // Find library
+      const libraryResult = await query(`
         SELECT b.id, b.user_id 
-        FROM brains b 
+        FROM libraries b 
         JOIN users u ON b.user_id = u.id 
         WHERE u.username = $1 AND b.name = $2
-      `, [pathInfo.username, pathInfo.brainName]);
+      `, [pathInfo.username, pathInfo.libraryName]);
 
-      if (brainResult.rows.length === 0) {
-        console.log(`⚠️  Brain not found: ${pathInfo.username}/${pathInfo.brainName}`);
+      if (libraryResult.rows.length === 0) {
+        console.log(`⚠️  Library not found: ${pathInfo.username}/${pathInfo.libraryName}`);
         return;
       }
 
-      const brainId = brainResult.rows[0].id;
+      const libraryId = libraryResult.rows[0].id;
 
-      // Check if card already exists with this file path
-      const existingCard = await Card.findByFilePath(filePath);
-      if (existingCard) {
-        console.log(`⚠️  Card already exists for file: ${filePath}`);
+      // Check if page already exists with this file path
+      const existingPage = await Page.findByFilePath(filePath);
+      if (existingPage) {
+        console.log(`⚠️  Page already exists for file: ${filePath}`);
         return;
       }
 
-      // Process file using card processor
-      const result = await cardProcessor.processFile(filePath, brainId, {
+      // Process file using page processor
+      const result = await pageProcessor.processFile(filePath, libraryId, {
         copyFile: false, // File is already in the right place
         updateExisting: true
       });
 
       if (result.success) {
-        // Process links in the card content
-        const content = await result.card.getContent();
-        await linkParser.processCardLinks(result.card.id, content);
-        console.log(`✅ Created card from file: ${result.card.title} (${result.action})`);
+        // Process links in the page content
+        const content = await result.page.getContent();
+        await linkParser.processPageLinks(result.page.id, content);
+        console.log(`✅ Created page from file: ${result.page.title} (${result.action})`);
       } else {
         console.log(`⚠️  Failed to process file: ${result.error}`);
       }
@@ -262,26 +262,26 @@ class FileWatcher {
         return;
       }
 
-      // Find existing card by file path
-      const existingCard = await Card.findByFilePath(filePath);
-      if (!existingCard) {
-        console.log(`⚠️  No card found for modified file: ${filePath}`);
+      // Find existing page by file path
+      const existingPage = await Page.findByFilePath(filePath);
+      if (!existingPage) {
+        console.log(`⚠️  No page found for modified file: ${filePath}`);
         return;
       }
 
       // Check if file has actually changed
-      const hasChanged = await existingCard.hasFileChanged();
+      const hasChanged = await existingPage.hasFileChanged();
       if (!hasChanged) {
         return; // No actual content change
       }
 
-      // Sync card with file
-      const updated = await existingCard.syncWithFile();
+      // Sync page with file
+      const updated = await existingPage.syncWithFile();
       if (updated) {
         // Reprocess links since content changed
-        const content = await existingCard.getContent();
-        await linkParser.processCardLinks(existingCard.id, content);
-        console.log(`✅ Updated card from file: ${existingCard.title}`);
+        const content = await existingPage.getContent();
+        await linkParser.processPageLinks(existingPage.id, content);
+        console.log(`✅ Updated page from file: ${existingPage.title}`);
       }
     } catch (error) {
       console.error(`❌ Failed to handle file modify: ${error.message}`);
@@ -293,30 +293,30 @@ class FileWatcher {
    */
   async handleFileRemove(filePath, pathInfo) {
     try {
-      // Find existing card by file path
-      const existingCard = await Card.findByFilePath(filePath);
-      if (!existingCard) {
-        console.log(`⚠️  No card found for removed file: ${filePath}`);
+      // Find existing page by file path
+      const existingPage = await Page.findByFilePath(filePath);
+      if (!existingPage) {
+        console.log(`⚠️  No page found for removed file: ${filePath}`);
         return;
       }
 
-      // Soft delete the card
-      await existingCard.delete({ deleteFile: false });
-      console.log(`✅ Marked card as inactive: ${existingCard.title}`);
+      // Soft delete the page
+      await existingPage.delete({ deleteFile: false });
+      console.log(`✅ Marked page as inactive: ${existingPage.title}`);
     } catch (error) {
       console.error(`❌ Failed to handle file remove: ${error.message}`);
     }
   }
 
   /**
-   * Handle directory addition (new brain creation)
+   * Handle directory addition (new library creation)
    */
   async handleDirectoryAdd(dirPath) {
     try {
       const pathInfo = this.parseDirectoryPath(dirPath);
-      if (pathInfo && pathInfo.isBrainDir) {
-        console.log(`📂 New brain directory detected: ${pathInfo.username}/${pathInfo.brainName}`);
-        // Brain creation will be handled by the API endpoints
+      if (pathInfo && pathInfo.isLibraryDir) {
+        console.log(`📂 New library directory detected: ${pathInfo.username}/${pathInfo.libraryName}`);
+        // Library creation will be handled by the API endpoints
         // This is just for logging/awareness
       }
     } catch (error) {
@@ -330,18 +330,18 @@ class FileWatcher {
   async handleDirectoryRemove(dirPath) {
     try {
       const pathInfo = this.parseDirectoryPath(dirPath);
-      if (pathInfo && pathInfo.isBrainDir) {
-        console.log(`📂 Brain directory removed: ${pathInfo.username}/${pathInfo.brainName}`);
-        // Mark all cards in brain as inactive
+      if (pathInfo && pathInfo.isLibraryDir) {
+        console.log(`📂 Library directory removed: ${pathInfo.username}/${pathInfo.libraryName}`);
+        // Mark all pages in library as inactive
         await query(`
-          UPDATE cards 
+          UPDATE pages 
           SET is_active = false, updated_at = CURRENT_TIMESTAMP
-          FROM brains b, users u
-          WHERE cards.brain_id = b.id 
+          FROM libraries b, users u
+          WHERE pages.library_id = b.id 
             AND b.user_id = u.id
             AND u.username = $1 
             AND b.name = $2
-        `, [pathInfo.username, pathInfo.brainName]);
+        `, [pathInfo.username, pathInfo.libraryName]);
       }
     } catch (error) {
       console.error(`❌ Error handling directory remove: ${error.message}`);
@@ -349,18 +349,18 @@ class FileWatcher {
   }
 
   /**
-   * Parse directory path to determine if it's a brain directory
+   * Parse directory path to determine if it's a library directory
    */
   parseDirectoryPath(dirPath) {
     const relativePath = path.relative(STORAGE_BASE, dirPath);
     const parts = relativePath.split(path.sep);
 
-    // Check if it's a brain directory: username/brains/brain-name
-    if (parts.length === 3 && parts[1] === 'brains') {
+    // Check if it's a library directory: username/libraries/library-name
+    if (parts.length === 3 && parts[1] === 'libraries') {
       return {
         username: parts[0],
-        brainName: parts[2],
-        isBrainDir: true
+        libraryName: parts[2],
+        isLibraryDir: true
       };
     }
 
@@ -368,43 +368,43 @@ class FileWatcher {
   }
 
   /**
-   * Force sync a specific brain directory
+   * Force sync a specific library directory
    */
-  async forceSyncBrain(username, brainName) {
+  async forceSyncLibrary(username, libraryName) {
     try {
-      console.log(`🔄 Force syncing brain: ${username}/${brainName}`);
+      console.log(`🔄 Force syncing library: ${username}/${libraryName}`);
       
-      // Find user first, then brain
+      // Find user first, then library
       const userResult = await query('SELECT id FROM users WHERE username = $1', [username]);
       if (userResult.rows.length === 0) {
         throw new Error(`User not found: ${username}`);
       }
       
-      const brain = await Brain.findByUserAndName(userResult.rows[0].id, brainName);
-      if (!brain) {
-        throw new Error(`Brain not found: ${username}/${brainName}`);
+      const library = await Library.findByUserAndName(userResult.rows[0].id, libraryName);
+      if (!library) {
+        throw new Error(`Library not found: ${username}/${libraryName}`);
       }
 
-      // Use card processor to sync all files in brain directory
-      const results = await cardProcessor.processDirectory(brain.folderPath, brain.id, {
+      // Use page processor to sync all files in library directory
+      const results = await pageProcessor.processDirectory(library.folderPath, library.id, {
         recursive: true,
         updateExisting: true
       });
 
-      // Process links for all successfully created/updated cards
+      // Process links for all successfully created/updated pages
       for (const result of results) {
-        if (result.success && result.card) {
-          const content = await result.card.getContent();
-          await linkParser.processCardLinks(result.card.id, content);
+        if (result.success && result.page) {
+          const content = await result.page.getContent();
+          await linkParser.processPageLinks(result.page.id, content);
         }
       }
 
       const successful = results.filter(r => r.success).length;
-      console.log(`✅ Force sync completed for ${username}/${brainName}: ${successful}/${results.length} files processed`);
+      console.log(`✅ Force sync completed for ${username}/${libraryName}: ${successful}/${results.length} files processed`);
       
       return { filesProcessed: results.length, successful };
     } catch (error) {
-      console.error(`❌ Force sync failed for ${username}/${brainName}:`, error.message);
+      console.error(`❌ Force sync failed for ${username}/${libraryName}:`, error.message);
       throw error;
     }
   }

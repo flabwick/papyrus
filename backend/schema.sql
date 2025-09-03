@@ -16,23 +16,23 @@ CREATE TABLE users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Brains table - knowledge bases containing cards
-CREATE TABLE brains (
+-- Libraries table - knowledge bases containing cards
+CREATE TABLE libraries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
-    folder_path VARCHAR(600) NOT NULL, -- e.g., 'backend/storage/username/brains/brain-name'
+    folder_path VARCHAR(600) NOT NULL, -- e.g., 'backend/storage/username/libraries/library-name'
     last_scanned_at TIMESTAMP WITH TIME ZONE,
     storage_used BIGINT DEFAULT 0,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(user_id, name) -- brain names must be unique per user
+    UNIQUE(user_id, name) -- library names must be unique per user
 );
 
 -- Cards table - individual pieces of content
 CREATE TABLE cards (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    brain_id UUID NOT NULL REFERENCES brains(id) ON DELETE CASCADE,
+    library_id UUID NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
     title VARCHAR(200),
     file_path VARCHAR(700), -- path to actual file in file system (nullable for manual cards)
     file_hash VARCHAR(64), -- SHA-256 hash for sync detection
@@ -48,7 +48,7 @@ CREATE TABLE cards (
     stream_specific_id UUID REFERENCES streams(id),
     file_id UUID, -- reference to files table when available
     -- Title uniqueness only applies to saved cards with titles
-    CONSTRAINT unique_brain_title UNIQUE (brain_id, title) DEFERRABLE INITIALLY DEFERRED
+    CONSTRAINT unique_library_title UNIQUE (library_id, title) DEFERRABLE INITIALLY DEFERRED
 );
 
 -- Card Links table - comprehensive [[card-title]] tracking
@@ -67,12 +67,12 @@ CREATE TABLE card_links (
 -- Streams table - temporary views of selected cards
 CREATE TABLE streams (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    brain_id UUID NOT NULL REFERENCES brains(id) ON DELETE CASCADE,
+    library_id UUID NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
     is_favorited BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     last_accessed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(brain_id, name) -- stream names must be unique per brain
+    UNIQUE(library_id, name) -- stream names must be unique per library
 );
 
 -- Stream Cards table - many-to-many relationship between streams and cards
@@ -108,11 +108,11 @@ CREATE TABLE web_sessions (
 
 -- Indexes for performance
 CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_brains_user_id ON brains(user_id);
-CREATE INDEX idx_brains_folder_path ON brains(folder_path);
+CREATE INDEX idx_libraries_user_id ON libraries(user_id);
+CREATE INDEX idx_libraries_folder_path ON libraries(folder_path);
 
-CREATE INDEX idx_cards_brain_id ON cards(brain_id);
-CREATE INDEX idx_cards_title ON cards(brain_id, title);
+CREATE INDEX idx_cards_library_id ON cards(library_id);
+CREATE INDEX idx_cards_title ON cards(library_id, title);
 CREATE INDEX idx_cards_file_path ON cards(file_path);
 CREATE INDEX idx_cards_file_hash ON cards(file_hash);
 CREATE INDEX idx_cards_active ON cards(is_active);
@@ -120,7 +120,7 @@ CREATE INDEX idx_cards_active ON cards(is_active);
 CREATE INDEX idx_cards_type ON cards(card_type);
 CREATE INDEX idx_cards_brain_wide ON cards(is_brain_wide);
 CREATE INDEX idx_cards_stream_specific ON cards(stream_specific_id);
-CREATE INDEX idx_cards_type_brain ON cards(brain_id, card_type);
+CREATE INDEX idx_cards_type_library ON cards(library_id, card_type);
 
 CREATE INDEX idx_card_links_source ON card_links(source_card_id);
 CREATE INDEX idx_card_links_target ON card_links(target_card_id);
@@ -128,7 +128,7 @@ CREATE INDEX idx_card_links_text ON card_links(link_text);
 CREATE INDEX idx_card_links_position ON card_links(source_card_id, position_in_source);
 CREATE INDEX idx_card_links_valid ON card_links(is_valid);
 
-CREATE INDEX idx_streams_brain_id ON streams(brain_id);
+CREATE INDEX idx_streams_library_id ON streams(library_id);
 CREATE INDEX idx_streams_favorited ON streams(is_favorited);
 CREATE INDEX idx_streams_last_accessed ON streams(last_accessed_at);
 
@@ -165,7 +165,7 @@ BEGIN
             RAISE EXCEPTION 'Unsaved cards must have stream_specific_id';
         END IF;
         
-        -- Brain-wide cards should not have stream restrictions
+        -- Library-wide cards should not have stream restrictions
         IF NEW.is_brain_wide = true AND NEW.stream_specific_id IS NOT NULL THEN
             NEW.stream_specific_id = NULL;
         END IF;
@@ -184,7 +184,7 @@ $$ language 'plpgsql';
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_brains_updated_at BEFORE UPDATE ON brains
+CREATE TRIGGER update_libraries_updated_at BEFORE UPDATE ON libraries
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_cards_updated_at BEFORE UPDATE ON cards

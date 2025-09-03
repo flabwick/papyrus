@@ -4,9 +4,9 @@ require('dotenv').config();
 const fs = require('fs-extra');
 const path = require('path');
 
-// Test the complete card management system
-async function testCardSystem() {
-  console.log('🧪 Testing Card Management System\n');
+// Test the complete page management system
+async function testPageSystem() {
+  console.log('🧪 Testing Page Management System\n');
   
   const testResults = {
     passed: 0,
@@ -26,33 +26,33 @@ async function testCardSystem() {
     // Test 1: Database Models
     console.log('📊 Testing Database Models...');
     
-    // Test Card model
+    // Test Page model
     try {
-      const Card = require('./src/models/Card');
-      logTest('Card model import', true);
+      const Page = require('./src/models/Page');
+      logTest('Page model import', true);
       
       // Test static methods exist
-      const staticMethods = ['create', 'findById', 'findByBrainId', 'findByBrainAndTitle'];
+      const staticMethods = ['create', 'findById', 'findByLibraryId', 'findByLibraryAndTitle'];
       for (const method of staticMethods) {
-        logTest(`Card.${method} static method exists`, typeof Card[method] === 'function');
+        logTest(`Page.${method} static method exists`, typeof Page[method] === 'function');
       }
       
       // Test instance methods (create a dummy instance to test)
-      const dummyCard = new Card({ id: 'test', brain_id: 'test', title: 'test' });
+      const dummyPage = new Page({ id: 'test', library_id: 'test', title: 'test' });
       const instanceMethods = ['updateContent', 'delete'];
       for (const method of instanceMethods) {
-        logTest(`Card.${method} instance method exists`, typeof dummyCard[method] === 'function');
+        logTest(`Page.${method} instance method exists`, typeof dummyPage[method] === 'function');
       }
     } catch (error) {
-      logTest('Card model import', false, error.message);
+      logTest('Page model import', false, error.message);
     }
     
-    // Test Brain model
+    // Test Library model
     try {
-      const Brain = require('./src/models/Brain');
-      logTest('Brain model import', true);
+      const Library = require('./src/models/Library');
+      logTest('Library model import', true);
     } catch (error) {
-      logTest('Brain model import', false, error.message);
+      logTest('Library model import', false, error.message);
     }
     
     // Test 2: File Processors
@@ -85,22 +85,22 @@ async function testCardSystem() {
     console.log('\n🔧 Testing Services...');
     
     try {
-      const cardProcessor = require('./src/services/cardProcessor');
-      logTest('cardProcessor service import', true);
+      const pageProcessor = require('./src/services/pageProcessor');
+      logTest('pageProcessor service import', true);
       
-      const serviceMethods = ['processFile', 'processFiles', 'createCardFromContent', 'canProcess'];
+      const serviceMethods = ['processFile', 'processFiles', 'createPageFromContent', 'canProcess'];
       for (const method of serviceMethods) {
-        logTest(`cardProcessor.${method} exists`, typeof cardProcessor[method] === 'function');
+        logTest(`pageProcessor.${method} exists`, typeof pageProcessor[method] === 'function');
       }
     } catch (error) {
-      logTest('cardProcessor service import', false, error.message);
+      logTest('pageProcessor service import', false, error.message);
     }
     
     try {
       const linkParser = require('./src/services/linkParser');
       logTest('linkParser service import', true);
       
-      const linkMethods = ['extractLinks', 'processCardLinks', 'resolveLinks'];
+      const linkMethods = ['extractLinks', 'processPageLinks', 'resolveLinks'];
       for (const method of linkMethods) {
         logTest(`linkParser.${method} exists`, typeof linkParser[method] === 'function');
       }
@@ -124,21 +124,21 @@ async function testCardSystem() {
     console.log('\n🌐 Testing REST API Routes...');
     
     try {
-      const cardsRouter = require('./src/routes/cards');
-      logTest('cards router import', true);
-      logTest('cards router is function', typeof cardsRouter === 'function');
+      const pagesRouter = require('./src/routes/pages');
+      logTest('pages router import', true);
+      logTest('pages router is function', typeof pagesRouter === 'function');
     } catch (error) {
-      logTest('cards router import', false, error.message);
+      logTest('pages router import', false, error.message);
     }
     
     // Test 5: CLI Commands
     console.log('\n💻 Testing CLI Commands...');
     
     try {
-      const cardCommands = require('./cli/commands/cards');
-      logTest('card CLI commands import', true);
+      const pageCommands = require('./cli/commands/pages');
+      logTest('page CLI commands import', true);
     } catch (error) {
-      logTest('card CLI commands import', false, error.message);
+      logTest('page CLI commands import', false, error.message);
     }
     
     // Test 6: Database Connection
@@ -167,16 +167,16 @@ async function testCardSystem() {
       
       if (storageExists) {
         const testUserDir = path.join(STORAGE_BASE, 'test-user');
-        const testBrainDir = path.join(testUserDir, 'brains', 'test-brain');
-        const testCardsDir = path.join(testBrainDir, 'cards');
+        const testLibraryDir = path.join(testUserDir, 'libraries', 'test-library');
+        const testPagesDir = path.join(testLibraryDir, 'pages');
         
         // Create test directory structure
-        await fs.ensureDir(testCardsDir);
+        await fs.ensureDir(testPagesDir);
         logTest('Can create directory structure', true);
         
         // Test file operations
-        const testFile = path.join(testCardsDir, 'test-card.md');
-        await fs.writeFile(testFile, '# Test Card\n\nThis is a test card with [[link]] syntax.');
+        const testFile = path.join(testPagesDir, 'test-page.md');
+        await fs.writeFile(testFile, '# Test Page\n\nThis is a test page with [[link]] syntax.');
         const fileExists = await fs.pathExists(testFile);
         logTest('Can write test file', fileExists);
         
@@ -194,9 +194,9 @@ async function testCardSystem() {
     try {
       const linkParser = require('./src/services/linkParser');
       
-      const testContent = `# Test Card
+      const testContent = `# Test Page
       
-This card links to [[another-card]] and [[yet-another-card]].
+This page links to [[another-page]] and [[yet-another-page]].
 It also has a [[complex-link-name]] in the middle of text.
       `;
       
@@ -204,8 +204,8 @@ It also has a [[complex-link-name]] in the middle of text.
       logTest('Link extraction works', Array.isArray(links));
       logTest('Extracts correct number of links', links.length === 3);
       
-      const expectedLinks = ['another-card', 'yet-another-card', 'complex-link-name'];
-      const extractedTitles = links.map(link => link.cardTitle); // Fix: use cardTitle property
+      const expectedLinks = ['another-page', 'yet-another-page', 'complex-link-name'];
+      const extractedTitles = links.map(link => link.pageTitle); // Fix: use pageTitle property
       const hasAllLinks = expectedLinks.every(title => extractedTitles.includes(title));
       logTest('Extracts correct link titles', hasAllLinks);
     } catch (error) {
@@ -216,14 +216,14 @@ It also has a [[complex-link-name]] in the middle of text.
     console.log('\n⚙️  Testing File Processing Logic...');
     
     try {
-      const cardProcessor = require('./src/services/cardProcessor');
+      const pageProcessor = require('./src/services/pageProcessor');
       
-      // Test file type detection (fix: cardProcessor is a singleton, use getProcessor for sync check)
-      const mdSupported = !!cardProcessor.getProcessor('test.md');
-      const txtSupported = !!cardProcessor.getProcessor('test.txt');
-      const pdfSupported = !!cardProcessor.getProcessor('test.pdf');
-      const epubSupported = !!cardProcessor.getProcessor('test.epub');
-      const unsupported = !!cardProcessor.getProcessor('test.exe');
+      // Test file type detection (fix: pageProcessor is a singleton, use getProcessor for sync check)
+      const mdSupported = !!pageProcessor.getProcessor('test.md');
+      const txtSupported = !!pageProcessor.getProcessor('test.txt');
+      const pdfSupported = !!pageProcessor.getProcessor('test.pdf');
+      const epubSupported = !!pageProcessor.getProcessor('test.epub');
+      const unsupported = !!pageProcessor.getProcessor('test.exe');
       
       logTest('Supports markdown files', mdSupported);
       logTest('Supports text files', txtSupported);
@@ -270,14 +270,14 @@ It also has a [[complex-link-name]] in the middle of text.
       });
   }
   
-  console.log('\n🎉 Card Management System Test Complete!');
+  console.log('\n🎉 Page Management System Test Complete!');
   
   return testResults.failed === 0;
 }
 
 // Run tests if called directly
 if (require.main === module) {
-  testCardSystem()
+  testPageSystem()
     .then(success => {
       process.exit(success ? 0 : 1);
     })
@@ -287,4 +287,4 @@ if (require.main === module) {
     });
 }
 
-module.exports = { testCardSystem };
+module.exports = { testPageSystem };

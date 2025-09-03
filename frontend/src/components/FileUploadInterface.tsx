@@ -2,7 +2,7 @@ import React, { useState, useRef, useCallback } from 'react';
 import api from '../services/api';
 
 interface FileUploadInterfaceProps {
-  brainId: string;
+  libraryId: string;
   streamId: string;
   position: number;
   onFileUploaded: (fileCard: any) => void;
@@ -20,7 +20,7 @@ interface UploadingFile {
 }
 
 const FileUploadInterface: React.FC<FileUploadInterfaceProps> = ({
-  brainId,
+  libraryId,
   streamId,
   position,
   onFileUploaded,
@@ -66,7 +66,7 @@ const FileUploadInterface: React.FC<FileUploadInterfaceProps> = ({
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('brainId', brainId);
+      formData.append('libraryId', libraryId);
       formData.append('streamId', streamId);
       formData.append('position', position.toString());
 
@@ -150,7 +150,7 @@ const FileUploadInterface: React.FC<FileUploadInterfaceProps> = ({
       
       await uploadFile(file);
     }
-  }, [brainId, streamId, position]);
+  }, [libraryId, streamId, position]);
 
   const handleDragOver = useCallback((e: React.DragEvent) => {
     e.preventDefault();

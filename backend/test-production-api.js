@@ -16,7 +16,7 @@ class ProductionAPITester {
       errors: []
     };
     this.authCookie = null;
-    this.testBrainId = null;
+    this.testLibraryId = null;
     this.testUploadId = null;
   }
 
@@ -166,7 +166,7 @@ class ProductionAPITester {
       const tempCookie = this.authCookie;
       this.authCookie = null;
       
-      const response = await this.fetch('/brains');
+      const response = await this.fetch('/libraries');
       this.assertEqual(response.status, 401);
       
       const data = await response.json();
@@ -219,28 +219,28 @@ class ProductionAPITester {
       return;
     }
 
-    // Create test brain first
-    await this.test('Create test brain for uploads', async () => {
-      const response = await this.fetch('/brains', 'POST', {
-        name: 'Test Upload Brain'
+    // Create test library first
+    await this.test('Create test library for uploads', async () => {
+      const response = await this.fetch('/libraries', 'POST', {
+        name: 'Test Upload Library'
       });
       
       if (response.status === 200) {
         const data = await response.json();
-        this.testBrainId = data.data.id;
+        this.testLibraryId = data.data.id;
         this.assertTrue(data.success);
       }
     });
 
-    if (!this.testBrainId) {
-      console.log('⚠️  Skipping upload tests - no test brain available');
+    if (!this.testLibraryId) {
+      console.log('⚠️  Skipping upload tests - no test library available');
       return;
     }
 
     // Test upload without files
     await this.test('Upload without files', async () => {
       const formData = new FormData();
-      formData.append('brainId', this.testBrainId);
+      formData.append('libraryId', this.testLibraryId);
 
       const response = await this.fetch('/upload', 'POST', formData);
       this.assertEqual(response.status, 400);
@@ -250,8 +250,8 @@ class ProductionAPITester {
       this.assertEqual(data.error.code, 'VALIDATION_ERROR');
     });
 
-    // Test upload without brain ID
-    await this.test('Upload without brain ID', async () => {
+    // Test upload without library ID
+    await this.test('Upload without library ID', async () => {
       const formData = new FormData();
       const testFile = new Blob(['Test content'], { type: 'text/plain' });
       formData.append('files', testFile, 'test.txt');
@@ -267,7 +267,7 @@ class ProductionAPITester {
     // Test valid file upload
     await this.test('Valid file upload', async () => {
       const formData = new FormData();
-      formData.append('brainId', this.testBrainId);
+      formData.append('libraryId', this.testLibraryId);
       
       const testFile = new Blob(['# Test Document\n\nThis is a test markdown file.'], 
         { type: 'text/markdown' });
@@ -324,7 +324,7 @@ class ProductionAPITester {
 
     // Test invalid JSON
     await this.test('Invalid JSON handling', async () => {
-      const response = await fetch(`${this.baseUrl}/brains`, {
+      const response = await fetch(`${this.baseUrl}/libraries`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -341,7 +341,7 @@ class ProductionAPITester {
     // Test invalid UUID parameter
     if (this.authCookie) {
       await this.test('Invalid UUID parameter', async () => {
-        const response = await this.fetch('/brains/invalid-uuid');
+        const response = await this.fetch('/libraries/invalid-uuid');
         this.assertEqual(response.status, 400);
         
         const data = await response.json();
@@ -425,8 +425,8 @@ class ProductionAPITester {
     await this.test('Input sanitization', async () => {
       if (!this.authCookie) return;
 
-      const response = await this.fetch('/brains', 'POST', {
-        name: '<script>alert("xss")</script>Test Brain'
+      const response = await this.fetch('/libraries', 'POST', {
+        name: '<script>alert("xss")</script>Test Library'
       });
       
       // Should not return 500 error (input should be sanitized)
@@ -467,7 +467,7 @@ class ProductionAPITester {
       if (!this.authCookie) return;
 
       const largeContent = 'x'.repeat(10000); // 10KB content
-      const response = await this.fetch('/brains', 'POST', {
+      const response = await this.fetch('/libraries', 'POST', {
         name: 'Large Content Test',
         description: largeContent
       });

@@ -31,12 +31,12 @@ const server = app.listen(PORT, async () => {
   console.log('  GET  /api/auth/user     - Get current user');
   console.log('  POST /api/auth/logout   - User logout');
   console.log('  GET  /api/auth/status   - Auth status');
-  console.log('  GET  /api/brains        - List user brains');
-  console.log('  POST /api/brains        - Create new brain');
-  console.log('  GET  /api/brains/:id    - Get specific brain');
-  console.log('  GET  /api/brains/:id/cards - Get brain cards');
-  console.log('  DELETE /api/brains/:id  - Delete brain');
-  console.log('  POST /api/brains/:id/sync - Sync brain files');
+  console.log('  GET  /api/libraries        - List user libraries');
+  console.log('  POST /api/libraries        - Create new library');
+  console.log('  GET  /api/libraries/:id    - Get specific library');
+  console.log('  GET  /api/libraries/:id/cards - Get library cards');
+  console.log('  DELETE /api/libraries/:id  - Delete library');
+  console.log('  POST /api/libraries/:id/sync - Sync library files');
   console.log('  GET  /api/cards          - List cards');
   console.log('  POST /api/cards          - Create card');
   console.log('  GET  /api/cards/:id      - Get card');

@@ -1,35 +1,35 @@
 import React, { useState, useEffect } from 'react';
-import { Brain, Stream } from '../types';
+import { Library, Workspace } from '../types';
 import { useAuth } from '../contexts/AuthContext';
 import { useApp } from '../contexts/AppContext';
 import api from '../services/api';
 
 interface HeaderProps {
-  onBrainSelect: (brain: Brain) => void;
-  onStreamSelect: (stream: Stream) => void;
-  onNewStream: () => Promise<void>;
-  onOpenBrainInterface: () => void;
-  onOpenCurrentBrainManagement: () => void;
+  onLibrarySelect: (library: Library) => void;
+  onWorkspaceSelect: (workspace: Workspace) => void;
+  onNewWorkspace: () => Promise<void>;
+  onOpenLibraryInterface: () => void;
+  onOpenCurrentLibraryManagement: () => void;
 }
 
-const Header: React.FC<HeaderProps> = ({ onBrainSelect, onStreamSelect, onNewStream, onOpenBrainInterface, onOpenCurrentBrainManagement }) => {
-  const [isEditingStreamName, setIsEditingStreamName] = useState(false);
-  const [editStreamName, setEditStreamName] = useState('');
+const Header: React.FC<HeaderProps> = ({ onLibrarySelect, onWorkspaceSelect, onNewWorkspace, onOpenLibraryInterface, onOpenCurrentLibraryManagement }) => {
+  const [isEditingWorkspaceName, setIsEditingWorkspaceName] = useState(false);
+  const [editWorkspaceName, setEditWorkspaceName] = useState('');
   const { user, logout } = useAuth();
-  const { selectedBrain, currentStream, setError } = useApp();
+  const { selectedLibrary, currentWorkspace, setError } = useApp();
 
-  // Auto-load first brain and stream on mount
+  // Auto-load first library and workspace on mount
   useEffect(() => {
     const loadInitialData = async () => {
-      if (!selectedBrain) {
+      if (!selectedLibrary) {
         try {
-          const response = await api.get('/brains');
-          const brains = response.data.brains || [];
-          if (brains.length > 0) {
-            onBrainSelect(brains[0]);
+          const response = await api.get('/librarys');
+          const librarys = response.data.librarys || [];
+          if (librarys.length > 0) {
+            onLibrarySelect(librarys[0]);
           }
         } catch (err: any) {
-          setError(err.response?.data?.message || 'Failed to load brains');
+          setError(err.response?.data?.message || 'Failed to load librarys');
         }
       }
     };
@@ -38,22 +38,22 @@ const Header: React.FC<HeaderProps> = ({ onBrainSelect, onStreamSelect, onNewStr
   }, []);
 
   useEffect(() => {
-    const loadInitialStream = async () => {
-      if (selectedBrain && !currentStream) {
+    const loadInitialWorkspace = async () => {
+      if (selectedLibrary && !currentWorkspace) {
         try {
-          const response = await api.get(`/streams?brainId=${selectedBrain.id}`);
-          const streams = response.data.streams || [];
-          if (streams.length > 0) {
-            onStreamSelect(streams[0]);
+          const response = await api.get(`/workspaces?libraryId=${selectedLibrary.id}`);
+          const workspaces = response.data.workspaces || [];
+          if (workspaces.length > 0) {
+            onWorkspaceSelect(workspaces[0]);
           }
         } catch (err: any) {
-          setError(err.response?.data?.message || 'Failed to load streams');
+          setError(err.response?.data?.message || 'Failed to load workspaces');
         }
       }
     };
     
-    loadInitialStream();
-  }, [selectedBrain]);
+    loadInitialWorkspace();
+  }, [selectedLibrary]);
 
   const handleLogout = async () => {
     if (window.confirm('Are you sure you want to sign out?')) {
@@ -61,63 +61,63 @@ const Header: React.FC<HeaderProps> = ({ onBrainSelect, onStreamSelect, onNewStr
     }
   };
 
-  const handleStartStreamEdit = () => {
-    if (currentStream) {
-      const streamName = (currentStream as any).name || currentStream.title || '';
-      setEditStreamName(streamName);
-      setIsEditingStreamName(true);
+  const handleStartWorkspaceEdit = () => {
+    if (currentWorkspace) {
+      const workspaceName = (currentWorkspace as any).name || currentWorkspace.title || '';
+      setEditWorkspaceName(workspaceName);
+      setIsEditingWorkspaceName(true);
     }
   };
 
-  const handleStreamRename = async () => {
-    if (!currentStream || !selectedBrain || !editStreamName.trim()) {
-      setIsEditingStreamName(false);
+  const handleWorkspaceRename = async () => {
+    if (!currentWorkspace || !selectedLibrary || !editWorkspaceName.trim()) {
+      setIsEditingWorkspaceName(false);
       return;
     }
 
-    const newName = editStreamName.trim();
-    const currentName = (currentStream as any).name || currentStream.title || '';
+    const newName = editWorkspaceName.trim();
+    const currentName = (currentWorkspace as any).name || currentWorkspace.title || '';
     
     if (newName === currentName) {
-      setIsEditingStreamName(false);
+      setIsEditingWorkspaceName(false);
       return;
     }
 
     try {
-      // Check if stream name already exists in this brain
-      const response = await api.get(`/streams?brainId=${selectedBrain.id}`);
-      const streams = response.data.streams || [];
-      const nameExists = streams.some((s: any) => 
-        s.id !== currentStream.id && 
+      // Check if workspace name already exists in this library
+      const response = await api.get(`/workspaces?libraryId=${selectedLibrary.id}`);
+      const workspaces = response.data.workspaces || [];
+      const nameExists = workspaces.some((s: any) => 
+        s.id !== currentWorkspace.id && 
         ((s.name || s.title || '').toLowerCase() === newName.toLowerCase())
       );
 
       if (nameExists) {
-        setError(`A stream named "${newName}" already exists in this brain`);
-        setIsEditingStreamName(false);
+        setError(`A workspace named "${newName}" already exists in this library`);
+        setIsEditingWorkspaceName(false);
         return;
       }
 
-      // Update the stream name
-      await api.put(`/streams/${currentStream.id}`, { name: newName });
+      // Update the workspace name
+      await api.put(`/workspaces/${currentWorkspace.id}`, { name: newName });
       
-      // Update the current stream in the app context
-      const updatedStream = { ...currentStream, name: newName } as any;
-      onStreamSelect(updatedStream);
+      // Update the current workspace in the app context
+      const updatedWorkspace = { ...currentWorkspace, name: newName } as any;
+      onWorkspaceSelect(updatedWorkspace);
       
-      setIsEditingStreamName(false);
+      setIsEditingWorkspaceName(false);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to rename stream');
-      setIsEditingStreamName(false);
+      setError(err.response?.data?.message || 'Failed to rename workspace');
+      setIsEditingWorkspaceName(false);
     }
   };
 
-  const handleStreamEditKeyDown = (e: React.KeyboardEvent) => {
+  const handleWorkspaceEditKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
-      handleStreamRename();
+      handleWorkspaceRename();
     } else if (e.key === 'Escape') {
-      setIsEditingStreamName(false);
-      setEditStreamName('');
+      setIsEditingWorkspaceName(false);
+      setEditWorkspaceName('');
     }
   };
 
@@ -126,39 +126,39 @@ const Header: React.FC<HeaderProps> = ({ onBrainSelect, onStreamSelect, onNewStr
     <>
       <header className="app-header">
         <div className="flex items-center gap-md">
-          {/* Brain Interface Button */}
+          {/* Library Interface Button */}
           <button
             type="button"
-            className="btn btn-small brain-interface-btn"
-            onClick={onOpenBrainInterface}
-            title="Open Brain Interface"
+            className="btn btn-small library-interface-btn"
+            onClick={onOpenLibraryInterface}
+            title="Open Library Interface"
           >
             🧠
           </button>
 
           {/* Breadcrumb Navigation */}
           <div className="breadcrumb-nav">
-            {selectedBrain && (
+            {selectedLibrary && (
               <>
                 <button
                   type="button"
-                  className="breadcrumb-item brain-breadcrumb"
-                  onClick={onOpenCurrentBrainManagement}
-                  title="Manage current brain"
+                  className="breadcrumb-item library-breadcrumb"
+                  onClick={onOpenCurrentLibraryManagement}
+                  title="Manage current library"
                 >
-                  {(selectedBrain as any).name || selectedBrain.title}
+                  {(selectedLibrary as any).name || selectedLibrary.title}
                 </button>
-                {currentStream && (
+                {currentWorkspace && (
                   <>
                     <span className="breadcrumb-separator">›</span>
-                    {isEditingStreamName ? (
+                    {isEditingWorkspaceName ? (
                       <input
                         type="text"
-                        value={editStreamName}
-                        onChange={(e) => setEditStreamName(e.target.value)}
-                        onBlur={handleStreamRename}
-                        onKeyDown={handleStreamEditKeyDown}
-                        className="breadcrumb-item stream-breadcrumb-input"
+                        value={editWorkspaceName}
+                        onChange={(e) => setEditWorkspaceName(e.target.value)}
+                        onBlur={handleWorkspaceRename}
+                        onKeyDown={handleWorkspaceEditKeyDown}
+                        className="breadcrumb-item workspace-breadcrumb-input"
                         autoFocus
                         style={{
                           background: 'white',
@@ -172,11 +172,11 @@ const Header: React.FC<HeaderProps> = ({ onBrainSelect, onStreamSelect, onNewStr
                     ) : (
                       <button
                         type="button"
-                        className="breadcrumb-item stream-breadcrumb"
-                        onClick={handleStartStreamEdit}
-                        title="Click to rename stream"
+                        className="breadcrumb-item workspace-breadcrumb"
+                        onClick={handleStartWorkspaceEdit}
+                        title="Click to rename workspace"
                       >
-                        {(currentStream as any).name || currentStream.title}
+                        {(currentWorkspace as any).name || currentWorkspace.title}
                       </button>
                     )}
                   </>

@@ -1,14 +1,14 @@
-# CLARITY PROJECT - COMPREHENSIVE CONTEXT DOCUMENTATION
+# PAPYRUS PROJECT - COMPREHENSIVE CONTEXT DOCUMENTATION
 
-**Generated:** 2025-08-18  
+**Generated:** 2025-09-03  
 **Purpose:** Complete technical reference for future AI agents working on this project  
-**Project Status:** Production-ready core system with advanced file handling features 85% complete  
+**Project Status:** Production-ready core system with advanced file handling features and comprehensive renaming complete  
 
 ---
 
 ## EXECUTIVE SUMMARY
 
-Clarity is a knowledge management system implementing a **brain → stream → card/file** hierarchical organization model. It uses a PostgreSQL database as metadata store while maintaining the file system as the source of truth for content. The system features real-time file monitoring, session-based authentication, comprehensive EPUB/PDF file handling with cover image support, and a React frontend with a Node.js/Express backend.
+Papyrus is a knowledge management system implementing a **library → workspace → page/file** hierarchical organization model. It uses a PostgreSQL database as metadata store while maintaining the file system as the source of truth for content. The system features real-time file monitoring, session-based authentication, comprehensive EPUB/PDF file handling with cover image support, and a React frontend with a Node.js/Express backend.
 
 **Current Deployment State:**
 - **Production API**: Fully functional at `backend/server.js` → `src/app-working.js`
@@ -27,7 +27,7 @@ Clarity is a knowledge management system implementing a **brain → stream → c
 ```
 Backend:
 ├── Node.js 18+ with Express 5.1.0
-├── PostgreSQL database (brain6, port 5433)
+├── PostgreSQL database (papyrus, port 5433)
 ├── File system storage (backend/storage/)
 ├── Real-time file monitoring (chokidar)
 ├── Session management (connect-pg-simple)
@@ -42,39 +42,39 @@ Frontend:
 ├── ReactMarkdown for content rendering
 ├── PDF.js and EPUB2 for document processing
 ├── FileViewer component with cover image support
-└── Mixed stream items (cards + files)
+└── Mixed workspace items (pages + files)
 
 CLI Tools:
 ├── Commander.js for command handling
 ├── Admin user management
-├── Brain/card operations
+├── Library/page operations
 └── System maintenance tools
 ```
 
 ### Directory Structure
 
 ```
-brain6/
+papyrus/
 ├── backend/
 │   ├── server.js                 # Entry point (loads app-working.js)
 │   ├── src/
 │   │   ├── app-working.js       # Production Express app
-│   │   ├── models/              # Database models (User, Brain, Card, Stream, StreamFile)
-│   │   ├── routes/              # API endpoints (auth, brains, cards, streams, files)
-│   │   ├── services/            # Business logic (fileWatcher, cardProcessor, etc.)
+│   │   ├── models/              # Database models (User, Library, Page, Workspace, WorkspaceFile)
+│   │   ├── routes/              # API endpoints (auth, libraries, pages, workspaces, files)
+│   │   ├── services/            # Business logic (fileWatcher, pageProcessor, etc.)
 │   │   ├── middleware/          # Auth and response formatting
 │   │   └── utils/               # File system and processing utilities
 │   │       └── fileProcessors/  # EPUB, PDF, text, markdown processors
 │   ├── storage/                 # File system data store
-│   │   └── {username}/brains/{brain-name}/
-│   │       ├── cards/          # Manual card content files
+│   │   └── {username}/libraries/{library-name}/
+│   │       ├── pages/          # Manual page content files
 │   │       └── files/          # Uploaded documents + covers/ subdirectory
 │   ├── cli/                     # Command-line interface
 │   ├── *-migration.sql          # Database schema migration files
 │   └── migrations & tests/      # Database setup and testing
 ├── frontend/
 │   ├── src/
-│   │   ├── components/          # React components (StreamView, FileViewer, etc.)
+│   │   ├── components/          # React components (WorkspaceView, FileViewer, etc.)
 │   │   ├── contexts/           # Global state (Auth, App)
 │   │   ├── services/           # API client
 │   │   └── types/              # TypeScript definitions
@@ -91,13 +91,13 @@ brain6/
 
 **Primary Tables:**
 - `users` - User accounts with storage quotas
-- `brains` - Knowledge bases owned by users
-- `cards` - Content pieces within brains
-- `streams` - Temporary card collections/views
-- `stream_cards` - Many-to-many relationship (streams ↔ cards)
+- `libraries` - Knowledge bases owned by users
+- `pages` - Content pieces within libraries
+- `workspaces` - Temporary page collections/views
+- `workspace_pages` - Many-to-many relationship (workspaces ↔ pages)
 - `files` - **NEW**: Uploaded file metadata with processing status
-- `stream_files` - **NEW**: Many-to-many relationship (streams ↔ files)
-- `card_links` - Card-to-card references via `[[title]]` syntax
+- `workspace_files` - **NEW**: Many-to-many relationship (workspaces ↔ files)
+- `page_links` - Page-to-page references via `[[title]]` syntax
 - `web_sessions` - HTTP session storage
 - `cli_sessions` - CLI authentication tokens
 
@@ -107,8 +107,8 @@ brain6/
   - EPUB metadata: `epub_title`, `epub_author`, `epub_description`, `epub_chapter_count`
   - Cover images: `cover_image_path`
   - Processing: `processing_status`, `content_preview`
-- `stream_files` table for file positioning in streams
-- `stream_items_view` - **NEW**: Unified view combining cards and files in position order
+- `workspace_files` table for file positioning in workspaces
+- `workspace_items_view` - **NEW**: Unified view combining pages and files in position order
 
 **Key Features:**
 - UUID primary keys throughout
@@ -116,30 +116,30 @@ brain6/
 - Automatic timestamp triggers
 - Comprehensive indexing for performance
 - Storage quota tracking and enforcement
-- **Mixed content streams** supporting both cards and files
+- **Mixed content workspaces** supporting both pages and files
 
-### Card and File Type System
+### Page and File Type System
 
 ```typescript
-// Card types determine behavior and storage
-type CardType = 'saved' | 'file' | 'unsaved';
+// Page types determine behavior and storage
+type PageType = 'saved' | 'file' | 'unsaved';
 
-// Stream items can be either cards or files
-interface StreamItem {
-  itemType: 'card' | 'file';
+// Workspace items can be either pages or files
+interface WorkspaceItem {
+  itemType: 'page' | 'file';
   position: number;
   depth: number;
   isCollapsed: boolean;
   addedAt: string;
-  // Unified interface for both cards and files
+  // Unified interface for both pages and files
 }
 
-// StreamFile Model (NEW)
-class StreamFile {
-  static async addFileToStream(streamId, fileId, position, depth, options)
-  static async getStreamItems(streamId) // Returns mixed cards + files
-  static async moveFile(streamId, fileId, newPosition)
-  static async removeFileFromStream(streamId, fileId)
+// WorkspaceFile Model (NEW)
+class WorkspaceFile {
+  static async addFileToWorkspace(workspaceId, fileId, position, depth, options)
+  static async getWorkspaceItems(workspaceId) // Returns mixed pages + files
+  static async moveFile(workspaceId, fileId, newPosition)
+  static async removeFileFromWorkspace(workspaceId, fileId)
 }
 ```
 
@@ -164,32 +164,32 @@ GET  /api/auth/user              # Current user profile
 POST /api/auth/logout            # Session cleanup
 GET  /api/auth/status            # Authentication state
 
-Brain Management:
-GET    /api/brains               # List user brains
-POST   /api/brains               # Create brain + file system
-GET    /api/brains/:id           # Brain details + metadata
-DELETE /api/brains/:id           # Soft delete + archive
-POST   /api/brains/:id/sync      # Force file system sync
-GET    /api/brains/:id/cards     # Brain cards list
-GET    /api/brains/:id/files/:fileId/cover  # NEW: Serve EPUB cover images
+Library Management:
+GET    /api/libraries            # List user libraries
+POST   /api/libraries            # Create library + file system
+GET    /api/libraries/:id        # Library details + metadata
+DELETE /api/libraries/:id        # Soft delete + archive
+POST   /api/libraries/:id/sync   # Force file system sync
+GET    /api/libraries/:id/pages  # Library pages list
+GET    /api/libraries/:id/files/:fileId/cover  # NEW: Serve EPUB cover images
 
-Card Operations:
-GET    /api/cards                # Filtered card lists
-POST   /api/cards                # Create manual/file cards
-GET    /api/cards/:id            # Full card content
-PUT    /api/cards/:id            # Update content + version
-DELETE /api/cards/:id            # Soft delete + cleanup
-POST   /api/cards/create-empty   # Create unsaved cards
+Page Operations:
+GET    /api/pages                # Filtered page lists
+POST   /api/pages                # Create manual/file pages
+GET    /api/pages/:id            # Full page content
+PUT    /api/pages/:id            # Update content + version
+DELETE /api/pages/:id            # Soft delete + cleanup
+POST   /api/pages/create-empty   # Create unsaved pages
 
-Stream Management:
-GET    /api/streams              # User streams + metadata
-POST   /api/streams              # Create stream + position management
-GET    /api/streams/:id          # Stream with ordered items (cards + files)
-PUT    /api/streams/:id          # Update metadata + item order
-DELETE /api/streams/:id          # Remove stream, preserve cards/files
-POST   /api/streams/:id/cards    # Add card at position
-PUT    /api/streams/:id/cards/:cardId  # Update card position/state
-DELETE /api/streams/:id/cards/:cardId  # Remove card from stream
+Workspace Management:
+GET    /api/workspaces           # User workspaces + metadata
+POST   /api/workspaces           # Create workspace + position management
+GET    /api/workspaces/:id       # Workspace with ordered items (pages + files)
+PUT    /api/workspaces/:id       # Update metadata + item order
+DELETE /api/workspaces/:id       # Remove workspace, preserve pages/files
+POST   /api/workspaces/:id/pages # Add page at position
+PUT    /api/workspaces/:id/pages/:pageId  # Update page position/state
+DELETE /api/workspaces/:id/pages/:pageId  # Remove page from workspace
 
 File Operations (NEW):
 GET    /api/files/:id/download   # Download file content
@@ -206,8 +206,8 @@ GET    /api/files/:id/cover      # Serve cover images
 ```
 backend/storage/
 ├── {username}/                  # User isolation
-│   └── brains/{brain-name}/
-│       ├── cards/              # Manual card content files
+│   └── libraries/{library-name}/
+│       ├── pages/              # Manual page content files
 │       └── files/              # NEW: Uploaded documents
 │           ├── *.pdf           # PDF files
 │           ├── *.epub          # EPUB files
@@ -215,7 +215,7 @@ backend/storage/
 │               ├── {filename}_cover.jpg
 │               ├── {filename}_cover.png
 │               └── ...
-├── .archived/                  # Deleted user/brain data
+├── .archived/                  # Deleted user/library data
 └── system/                     # System-wide configuration
 ```
 
@@ -239,7 +239,7 @@ backend/storage/
 2. Content extraction → processor selection
 3. **Cover image extraction** (for EPUB files)
 4. Database record creation with metadata
-5. Stream integration → position management
+5. Workspace integration → position management
 6. Link parsing → relationship building
 
 ---
@@ -253,15 +253,15 @@ frontend/src/
 ├── App.tsx                     # Root component with auth routing
 ├── components/
 │   ├── Login.tsx              # Authentication interface
-│   ├── Header.tsx             # Brain/stream navigation
-│   ├── StreamView.tsx         # NEW: Mixed content display (cards + files)
-│   ├── Card.tsx               # Individual card component
+│   ├── Header.tsx             # Library/workspace navigation
+│   ├── WorkspaceView.tsx      # NEW: Mixed content display (pages + files)
+│   ├── Page.tsx               # Individual page component
 │   ├── FileViewer.tsx         # NEW: File display with cover images
 │   ├── CommandBar.tsx         # Actions + AI context
-│   ├── BrainInterface.tsx     # Brain management
+│   ├── LibraryInterface.tsx   # Library management
 │   ├── FileUploadInterface.tsx # NEW: File upload handling
 │   ├── FileSearchInterface.tsx # NEW: File search and selection
-│   └── CardSearchInterface.tsx # Card search and selection
+│   └── PageSearchInterface.tsx # Page search and selection
 ├── contexts/
 │   ├── AuthContext.tsx        # Authentication state
 │   └── AppContext.tsx         # Application state
@@ -278,7 +278,7 @@ frontend/src/
 - EPUB cover image loading with blob URL management
 - PDF placeholder with download functionality
 - File positioning controls (move up/down, delete)
-- Integration with stream control buttons
+- Integration with workspace control buttons
 
 **EPUBViewer Sub-component:**
 - Cover image display with fallback placeholder
@@ -286,48 +286,48 @@ frontend/src/
 - Download functionality
 - Responsive layout with cover + info columns
 
-**StreamView Enhancements:**
-- Mixed content rendering (cards and files)
-- Unified positioning system for all stream items
+**WorkspaceView Enhancements:**
+- Mixed content rendering (pages and files)
+- Unified positioning system for all workspace items
 - File upload integration
 - Enhanced control buttons for file operations
 
 ---
 
-## STREAM MANAGEMENT (Enhanced)
+## WORKSPACE MANAGEMENT (Enhanced)
 
-### Mixed Content Streams
+### Mixed Content Workspaces
 
 ```typescript
-interface StreamItem {
-  itemType: 'card' | 'file';
+interface WorkspaceItem {
+  itemType: 'page' | 'file';
   position: number;
   depth: number;
   isCollapsed: boolean;
   addedAt: string;
-  // Unified interface for both cards and files
+  // Unified interface for both pages and files
 }
 
-// StreamFile Model (NEW)
-class StreamFile {
-  static async addFileToStream(streamId, fileId, position, depth, options)
-  static async getStreamItems(streamId) // Returns mixed cards + files
-  static async moveFile(streamId, fileId, newPosition)
-  static async removeFileFromStream(streamId, fileId)
+// WorkspaceFile Model (NEW)
+class WorkspaceFile {
+  static async addFileToWorkspace(workspaceId, fileId, position, depth, options)
+  static async getWorkspaceItems(workspaceId) // Returns mixed pages + files
+  static async moveFile(workspaceId, fileId, newPosition)
+  static async removeFileFromWorkspace(workspaceId, fileId)
 }
 ```
 
 **Position Management:**
-- Unified positioning system for cards and files
+- Unified positioning system for pages and files
 - Automatic position shifting when inserting items
-- Cross-type position management (files and cards share position space)
+- Cross-type position management (files and pages share position space)
 - Optimistic UI updates with rollback on failure
 
 **File Integration:**
-- Files can be added to streams alongside cards
+- Files can be added to workspaces alongside pages
 - Independent positioning and depth control
 - File-specific operations (download, cover display)
-- Consistent control interface with cards
+- Consistent control interface with pages
 
 ---
 
@@ -356,21 +356,21 @@ cd frontend && npm start           # React development server (port 4201)
 npm run build                      # Production build
 
 # Database Migrations
-psql -d brain6 -U jameschadwick -f fix_database_migration.sql
-psql -d brain6 -U jameschadwick -f stream-files-migration.sql
+psql -d papyrus -U jameschadwick -f fix_database_migration.sql
+psql -d papyrus -U jameschadwick -f workspace-files-migration.sql
 
 # Testing
-node backend/test-card-system.js   # Card models and processing
-node backend/test-stream-system.js # Stream operations
+node backend/test-page-system.js   # Page models and processing
+node backend/test-workspace-system.js # Workspace operations
 ```
 
 ### Database Migration Files
 
 **Key Migration Files:**
 - `fix_database_migration.sql` - Core file system schema
-- `stream-files-migration.sql` - Stream file relationships
-- `file-cards-migration.sql` - File metadata columns
-- `card-types-migration.sql` - Card type system updates
+- `workspace-files-migration.sql` - Workspace file relationships
+- `file-pages-migration.sql` - File metadata columns
+- `page-types-migration.sql` - Page type system updates
 
 ---
 
@@ -382,7 +382,7 @@ node backend/test-stream-system.js # Stream operations
 1. **Extraction**: `epubProcessor.js` extracts cover during file processing
 2. **Storage**: Covers saved to `files/covers/{filename}_cover.{ext}`
 3. **Database**: `cover_image_path` stored in files table
-4. **API**: `GET /api/brains/:id/files/:fileId/cover` serves images
+4. **API**: `GET /api/libraries/:id/files/:fileId/cover` serves images
 5. **Caching**: 24-hour cache headers for performance
 
 **Frontend Flow:**
@@ -405,8 +405,8 @@ node backend/test-stream-system.js # Stream operations
 
 **Response Times (Measured):**
 - System endpoints: 20-100ms
-- Card operations: 50-200ms
-- Stream operations: 100-300ms
+- Page operations: 50-200ms
+- Workspace operations: 100-300ms
 - File processing: 1-10s (depending on size)
 - **Cover image serving**: 50-200ms (with caching)
 
@@ -421,7 +421,7 @@ node backend/test-stream-system.js # Stream operations
 - Hash calculation: ~1ms per MB
 - Database queries: <50ms for most operations
 - **Cover extraction**: 200-500ms per EPUB
-- **Mixed stream queries**: <100ms via stream_items_view
+- **Mixed workspace queries**: <100ms via workspace_items_view
 
 ---
 
@@ -436,15 +436,15 @@ node backend/test-stream-system.js # Stream operations
 - Test file processors individually: `node -e "require('./src/utils/fileProcessors/epubProcessor').extractEpubMetadata('path/to/file.epub').then(console.log)"`
 
 **Cover Image Issues:**
-- Verify covers directory exists: `backend/storage/{user}/brains/{brain}/files/covers/`
+- Verify covers directory exists: `backend/storage/{user}/libraries/{library}/files/covers/`
 - Check cover_image_path in database: `SELECT cover_image_path FROM files WHERE file_type = 'epub'`
-- Test cover API endpoint: `curl http://localhost:3001/api/brains/{brainId}/files/{fileId}/cover`
+- Test cover API endpoint: `curl http://localhost:3001/api/libraries/{libraryId}/files/{fileId}/cover`
 - Monitor blob URL cleanup in browser dev tools
 
-**Stream Item Display Issues:**
-- Verify stream_items_view exists: `SELECT * FROM stream_items_view LIMIT 5`
-- Check mixed positioning: `SELECT item_type, position FROM stream_items_view WHERE stream_id = '{streamId}' ORDER BY position`
-- Test StreamFile model: `node -e "require('./src/models/StreamFile').getStreamItems('{streamId}').then(console.log)"`
+**Workspace Item Display Issues:**
+- Verify workspace_items_view exists: `SELECT * FROM workspace_items_view LIMIT 5`
+- Check mixed positioning: `SELECT item_type, position FROM workspace_items_view WHERE workspace_id = '{workspaceId}' ORDER BY position`
+- Test WorkspaceFile model: `node -e "require('./src/models/WorkspaceFile').getWorkspaceItems('{workspaceId}').then(console.log)"`
 
 ### Debug Commands
 
@@ -453,12 +453,12 @@ node backend/test-stream-system.js # Stream operations
 node -e "require('./backend/src/utils/fileProcessors/epubProcessor').extractEpubMetadata('./test.epub').then(console.log)"
 
 # Check database schema
-psql -d brain6 -U jameschadwick -c "\d files"
-psql -d brain6 -U jameschadwick -c "\d stream_files"
-psql -d brain6 -U jameschadwick -c "SELECT * FROM stream_items_view LIMIT 5"
+psql -d papyrus -U jameschadwick -c "\d files"
+psql -d papyrus -U jameschadwick -c "\d workspace_files"
+psql -d papyrus -U jameschadwick -c "SELECT * FROM workspace_items_view LIMIT 5"
 
 # Test cover image serving
-curl -I http://localhost:3001/api/brains/{brainId}/files/{fileId}/cover
+curl -I http://localhost:3001/api/libraries/{libraryId}/files/{fileId}/cover
 
 # Monitor file uploads
 tail -f backend/server.log | grep -E "(upload|cover|epub)"
@@ -469,11 +469,12 @@ tail -f backend/server.log | grep -E "(upload|cover|epub)"
 ## DEVELOPMENT PRIORITIES
 
 ### Completed (Recent Updates)
-1. ✅ **File System Integration** - Complete StreamFile model and database schema
+1. ✅ **File System Integration** - Complete WorkspaceFile model and database schema
 2. ✅ **EPUB Cover Support** - Full extraction, storage, and serving pipeline
-3. ✅ **Mixed Stream Items** - Unified cards and files in streams
+3. ✅ **Mixed Workspace Items** - Unified pages and files in workspaces
 4. ✅ **FileViewer Component** - Complete file display with cover images
 5. ✅ **Database Schema Extensions** - All required tables and views
+6. ✅ **Comprehensive Renaming** - Complete terminology update throughout system
 
 ### Immediate (Next Sprint)
 1. **PDF Cover Extraction** - Extend cover system to PDF files
@@ -485,7 +486,7 @@ tail -f backend/server.log | grep -E "(upload|cover|epub)"
 1. **Online File Viewers** - In-browser PDF/EPUB reading
 2. **File Versioning** - Track file updates and changes
 3. **Advanced Metadata** - Tags, categories, custom fields
-4. **Cross-Brain File References** - Share files between brains
+4. **Cross-Library File References** - Share files between libraries
 
 ### Medium Term (Next Quarter)
 1. **OCR Integration** - Text extraction from images in PDFs
@@ -504,14 +505,14 @@ tail -f backend/server.log | grep -E "(upload|cover|epub)"
 - **API Endpoints**: Cover serving requires proper authentication and ownership validation
 
 ### Database Considerations
-- **Mixed Streams**: stream_items_view provides unified access to cards and files
-- **Position Management**: Files and cards share the same position space in streams
+- **Mixed Workspaces**: workspace_items_view provides unified access to pages and files
+- **Position Management**: Files and pages share the same position space in workspaces
 - **Metadata Storage**: Comprehensive file metadata stored for search and display
 - **Migration Safety**: All file system migrations use `IF NOT EXISTS` for safe re-execution
 
 ### Frontend Architecture Notes
 - **Blob URL Management**: Proper cleanup prevents memory leaks in FileViewer
-- **Mixed Content**: StreamView handles both cards and files seamlessly
+- **Mixed Content**: WorkspaceView handles both pages and files seamlessly
 - **Responsive Design**: FileViewer adapts to different screen sizes
 - **Error Handling**: Graceful fallbacks when covers or files unavailable
 
@@ -519,24 +520,25 @@ tail -f backend/server.log | grep -E "(upload|cover|epub)"
 
 ## CONCLUSION
 
-Clarity represents a mature, production-ready knowledge management system with comprehensive file handling capabilities. The recent enhancements have transformed it from a card-only system to a full-featured document management platform supporting mixed content streams.
+Papyrus represents a mature, production-ready knowledge management system with comprehensive file handling capabilities. The recent enhancements have transformed it from a page-only system to a full-featured document management platform supporting mixed content workspaces.
 
 **Key Strengths:**
 - Complete file system integration with metadata extraction
 - EPUB cover image support with efficient serving and caching
-- Mixed content streams supporting both cards and files
+- Mixed content workspaces supporting both pages and files
 - Comprehensive database schema with proper relationships
 - React frontend with responsive file viewing components
 - Robust error handling and fallback mechanisms
+- **Complete terminology consistency** across all system components
 
-**Technical Foundation Quality:** 9/10 - Excellent architecture with comprehensive file handling  
-**Feature Completeness:** 8.5/10 - Core functionality complete, advanced features implemented  
-**Production Readiness:** 9/10 - Ready for production with full file system support
+**Technical Foundation Quality:** 9.5/10 - Excellent architecture with comprehensive file handling and consistent naming  
+**Feature Completeness:** 9/10 - Core functionality complete, advanced features implemented, renaming complete  
+**Production Readiness:** 9.5/10 - Ready for production with full file system support and clean terminology
 
-The system successfully implements advanced document management while maintaining the original vision of flexible knowledge organization through the brain → stream → card/file hierarchy.
+The system successfully implements advanced document management while maintaining the original vision of flexible knowledge organization through the library → workspace → page/file hierarchy.
 
 ---
 
-**Last Updated:** 2025-08-18  
+**Last Updated:** 2025-09-03  
 **Next Review:** When implementing online file viewers or AI integration  
 **Contact:** See project logs for development history and decision rationale

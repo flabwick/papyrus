@@ -37,4 +37,4 @@ CREATE INDEX IF NOT EXISTS idx_stream_files_stream_id ON stream_files(stream_id)
 CREATE INDEX IF NOT EXISTS idx_stream_files_position ON stream_files(position);
 
 -- Grant permissions
-GRANT SELECT ON stream_items_view TO brain6_user;
+GRANT SELECT ON stream_items_view TO papyrus_user;

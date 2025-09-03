@@ -8,7 +8,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.min.
 interface FileViewerProps {
   file: any; // File data from stream
   streamId: string;
-  brainId: string;
+  libraryId: string;
   depth?: number;
   onDelete: (fileId: string) => void;
   onMoveUp?: (fileId: string) => void;
@@ -26,7 +26,7 @@ interface FileViewerProps {
 const FileViewer: React.FC<FileViewerProps> = ({
   file,
   streamId,
-  brainId,
+  libraryId,
   depth = 0,
   onDelete,
   onMoveUp,
@@ -350,7 +350,7 @@ const EPUBViewer: React.FC<{ file: any }> = ({ file }) => {
   useEffect(() => {
     const loadCoverImage = async (fileId: string, coverPath: string) => {
       try {
-        const response = await api.get(`/brains/${file.brainId}/files/${fileId}/cover`, {
+        const response = await api.get(`/librarys/${file.libraryId}/files/${fileId}/cover`, {
           responseType: 'blob'
         });
         const blob = new Blob([response.data]);
@@ -365,7 +365,7 @@ const EPUBViewer: React.FC<{ file: any }> = ({ file }) => {
     if (file.coverImagePath) {
       loadCoverImage(file.id, file.coverImagePath);
     }
-  }, [file.id, file.coverImagePath, file.brainId]);
+  }, [file.id, file.coverImagePath, file.libraryId]);
 
   // Cleanup blob URL on unmount
   useEffect(() => {

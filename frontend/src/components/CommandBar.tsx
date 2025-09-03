@@ -5,11 +5,11 @@ import { useTokenCount } from '../hooks/useTokenCount';
 import { tokenCounter } from '../services/tokenCounter';
 
 interface CommandBarProps {
-  streamId?: string;
+  workspaceId?: string;
 }
 
-const CommandBar: React.FC<CommandBarProps> = ({ streamId }) => {
-  const { aiContextCards, clearAIContext, currentStream } = useApp();
+const CommandBar: React.FC<CommandBarProps> = ({ workspaceId }) => {
+  const { aiContextCards, clearAIContext, currentWorkspace } = useApp();
   const { user } = useAuth();
   const [selectedModel] = useState('gpt-4o'); // Default model for token counting
   
@@ -24,13 +24,13 @@ const CommandBar: React.FC<CommandBarProps> = ({ streamId }) => {
   return (
     <div className="app-command-bar">
       <div className="flex items-center gap-md">
-        {/* Stream actions */}
-        {streamId && (
+        {/* Workspace actions */}
+        {workspaceId && (
           <>
             <button
               className="btn btn-small"
               disabled
-              title="Stream settings (coming soon)"
+              title="Workspace settings (coming soon)"
             >
               Settings
             </button>
@@ -102,12 +102,12 @@ const CommandBar: React.FC<CommandBarProps> = ({ streamId }) => {
           </div>
         )}
 
-        {/* Stream info */}
-        {currentStream && (
+        {/* Workspace info */}
+        {currentWorkspace && (
           <div className="flex items-center gap-sm">
             <span className="body-text" style={{ fontSize: '12px', color: '#6b7280' }}>
-              {currentStream.isFavorited && '★ '}
-              Last accessed: {new Date(currentStream.lastAccessedAt).toLocaleDateString()}
+              {currentWorkspace.isFavorited && '★ '}
+              Last accessed: {new Date(currentWorkspace.lastAccessedAt).toLocaleDateString()}
             </span>
           </div>
         )}

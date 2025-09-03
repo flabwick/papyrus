@@ -1,19 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Card as CardType, StreamCard } from '../types';
+import { Card as CardType, WorkspaceCard } from '../types';
 import api from '../services/api';
 
 interface CardSearchInterfaceProps {
-  brainId: string;
-  streamId: string;
-  streamCards: StreamCard[];
+  libraryId: string;
+  workspaceId: string;
+  workspaceCards: WorkspaceCard[];
   onCardSelected: (card: CardType) => void;
   onCancel: () => void;
 }
 
 const CardSearchInterface: React.FC<CardSearchInterfaceProps> = ({
-  brainId,
-  streamId,
-  streamCards,
+  libraryId,
+  workspaceId,
+  workspaceCards,
   onCardSelected,
   onCancel
 }) => {
@@ -22,13 +22,13 @@ const CardSearchInterface: React.FC<CardSearchInterfaceProps> = ({
   const [isSearching, setIsSearching] = useState(false);
   const [allCards, setAllCards] = useState<CardType[]>([]);
 
-  // Get IDs of cards already in this stream
-  const cardsInStreamIds = streamCards.map(sc => sc.cardId || sc.id).filter(Boolean);
-  const cardsInStream = new Set(cardsInStreamIds);
+  // Get IDs of cards already in this workspace
+  const cardsInWorkspaceIds = workspaceCards.map(wc => wc.cardId || wc.id).filter(Boolean);
+  const cardsInWorkspace = new Set(cardsInWorkspaceIds);
 
   useEffect(() => {
     loadBrainCards();
-  }, [brainId]);
+  }, [libraryId]);
 
   useEffect(() => {
     if (searchQuery.trim()) {
@@ -36,22 +36,22 @@ const CardSearchInterface: React.FC<CardSearchInterfaceProps> = ({
     } else {
       // Show all cards when no search query (excluding unsaved cards)
       setSearchResults(allCards.filter((card: CardType) => 
-        !cardsInStream.has(card.id) && (card.cardType || 'saved') !== 'unsaved'
+        !cardsInWorkspace.has(card.id) && (card.cardType || 'saved') !== 'unsaved'
       ));
     }
-  }, [searchQuery, allCards, streamCards]);
+  }, [searchQuery, allCards, workspaceCards]);
 
   const loadBrainCards = async () => {
     try {
-      const response = await api.get(`/brains/${brainId}/cards`);
+      const response = await api.get(`/librarys/${libraryId}/cards`);
       const cards = response.data.cards || [];
       setAllCards(cards);
-      // Initially show all available cards (not in current stream, excluding unsaved cards)
+      // Initially show all available cards (not in current workspace, excluding unsaved cards)
       setSearchResults(cards.filter((card: CardType) => 
-        !cardsInStream.has(card.id) && (card.cardType || 'saved') !== 'unsaved'
+        !cardsInWorkspace.has(card.id) && (card.cardType || 'saved') !== 'unsaved'
       ));
     } catch (err) {
-      console.error('Failed to load brain cards:', err);
+      console.error('Failed to load library cards:', err);
     }
   };
 
@@ -62,7 +62,7 @@ const CardSearchInterface: React.FC<CardSearchInterfaceProps> = ({
     try {
       // Filter cards by title and content
       const filtered = allCards.filter((card: CardType) => {
-        if (cardsInStream.has(card.id)) return false;
+        if (cardsInWorkspace.has(card.id)) return false;
         
         // Exclude unsaved cards from search results
         if ((card.cardType || 'saved') === 'unsaved') return false;
@@ -84,9 +84,9 @@ const CardSearchInterface: React.FC<CardSearchInterfaceProps> = ({
   return (
     <div className="card" style={{ borderStyle: 'solid', borderColor: '#3b82f6' }}>
       <div className="card-header">
-        <h3 className="card-title">Add Existing Card to Stream</h3>
+        <h3 className="card-title">Add Existing Card to Workspace</h3>
         <div style={{ fontSize: '14px', color: '#6b7280', marginTop: '0.25rem' }}>
-          Search for cards in this brain to add to the current stream
+          Search for cards in this library to add to the current workspace
         </div>
       </div>
       

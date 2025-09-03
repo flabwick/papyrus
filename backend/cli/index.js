@@ -12,9 +12,9 @@ const { formatTable, formatJson, colorize } = require('./utils/formatting');
 
 // Import command modules
 const adminCommands = require('./commands/admin');
-const brainCommands = require('./commands/brains');
-const cardCommands = require('./commands/cards');
-const streamCommands = require('./commands/streams');
+const libraryCommands = require('./commands/libraries');
+const pageCommands = require('./commands/pages');
+const workspaceCommands = require('./commands/workspaces');
 const syncCommands = require('./commands/sync');
 
 const program = new Command();
@@ -185,67 +185,67 @@ admin
     }
   });
 
-// Brain commands
-const brains = program
-  .command('brains')
-  .description('Brain management commands');
+// Library commands
+const libraries = program
+  .command('libraries')
+  .description('Library management commands');
 
-brains
+libraries
   .command('list')
-  .description('List user brains')
+  .description('List user libraries')
   .action(async () => {
     try {
       await ensureAuthentication();
-      const brains = await brainCommands.listBrains();
+      const libraries = await libraryCommands.listLibraries();
       
       if (program.opts().json) {
-        console.log(JSON.stringify(brains, null, 2));
+        console.log(JSON.stringify(libraries, null, 2));
       } else {
-        if (brains.length === 0) {
-          console.log(colorize.info('No brains found'));
+        if (libraries.length === 0) {
+          console.log(colorize.info('No libraries found'));
         } else {
-          console.log(colorize.info(`Found ${brains.length} brains:`));
-          console.log(formatTable(brains.map(brain => ({
-            Name: brain.name,
-            Cards: brain.cardCount,
-            Storage: formatBytes(brain.storageUsed),
-            'Last Sync': brain.lastScannedAt ? new Date(brain.lastScannedAt).toLocaleDateString() : 'Never',
-            Created: new Date(brain.createdAt).toLocaleDateString()
+          console.log(colorize.info(`Found ${libraries.length} libraries:`));
+          console.log(formatTable(libraries.map(library => ({
+            Name: library.name,
+            Pages: library.pageCount,
+            Storage: formatBytes(library.storageUsed),
+            'Last Sync': library.lastScannedAt ? new Date(library.lastScannedAt).toLocaleDateString() : 'Never',
+            Created: new Date(library.createdAt).toLocaleDateString()
           }))));
         }
       }
     } catch (error) {
-      console.error(colorize.error(`❌ Failed to list brains: ${error.message}`));
+      console.error(colorize.error(`❌ Failed to list libraries: ${error.message}`));
       process.exit(1);
     }
   });
 
-brains
+libraries
   .command('create')
-  .description('Create a new brain')
-  .argument('<name>', 'Name for the new brain')
+  .description('Create a new library')
+  .argument('<name>', 'Name for the new library')
   .action(async (name) => {
     try {
       await ensureAuthentication();
-      const brain = await brainCommands.createBrain(name);
+      const library = await libraryCommands.createLibrary(name);
       
       if (program.opts().json) {
-        console.log(JSON.stringify(brain, null, 2));
+        console.log(JSON.stringify(library, null, 2));
       } else {
-        console.log(colorize.success(`✅ Created brain: ${brain.name}`));
-        console.log(`   Brain ID: ${brain.id}`);
-        console.log(`   Folder Path: ${brain.folderPath}`);
+        console.log(colorize.success(`✅ Created library: ${library.name}`));
+        console.log(`   Library ID: ${library.id}`);
+        console.log(`   Folder Path: ${library.folderPath}`);
       }
     } catch (error) {
-      console.error(colorize.error(`❌ Failed to create brain: ${error.message}`));
+      console.error(colorize.error(`❌ Failed to create library: ${error.message}`));
       process.exit(1);
     }
   });
 
-brains
+libraries
   .command('delete')
-  .description('Delete a brain')
-  .argument('<name>', 'Name of brain to delete')
+  .description('Delete a library')
+  .argument('<name>', 'Name of library to delete')
   .option('-y, --yes', 'Skip confirmation prompt')
   .action(async (name, options) => {
     try {
@@ -253,42 +253,42 @@ brains
       
       if (!options.yes) {
         const { confirmAction } = require('./utils/prompts');
-        const confirmed = await confirmAction(`Are you sure you want to delete brain '${name}'? This action cannot be undone.`);
+        const confirmed = await confirmAction(`Are you sure you want to delete library '${name}'? This action cannot be undone.`);
         if (!confirmed) {
           console.log(colorize.info('Operation cancelled'));
           return;
         }
       }
       
-      await brainCommands.deleteBrain(name);
-      console.log(colorize.success(`✅ Deleted brain: ${name}`));
+      await libraryCommands.deleteLibrary(name);
+      console.log(colorize.success(`✅ Deleted library: ${name}`));
     } catch (error) {
-      console.error(colorize.error(`❌ Failed to delete brain: ${error.message}`));
+      console.error(colorize.error(`❌ Failed to delete library: ${error.message}`));
       process.exit(1);
     }
   });
 
-// Card commands
-program.addCommand(cardCommands);
+// Page commands
+program.addCommand(pageCommands);
 
-// Stream commands
-program.addCommand(streamCommands);
+// Workspace commands
+program.addCommand(workspaceCommands);
 
 // Sync commands
 program
   .command('sync')
   .description('Force sync file system with database')
-  .option('-b, --brain <name>', 'Sync specific brain only')
+  .option('-b, --library <name>', 'Sync specific library only')
   .action(async (options) => {
     try {
       await ensureAuthentication();
       
-      if (options.brain) {
-        const result = await syncCommands.syncBrain(options.brain);
-        console.log(colorize.success(`✅ Synced brain '${options.brain}': ${result.filesProcessed} files processed`));
+      if (options.library) {
+        const result = await syncCommands.syncLibrary(options.library);
+        console.log(colorize.success(`✅ Synced library '${options.library}': ${result.filesProcessed} files processed`));
       } else {
         const result = await syncCommands.syncAll();
-        console.log(colorize.success(`✅ Synced all brains: ${result.brainsProcessed} brains, ${result.filesProcessed} files processed`));
+        console.log(colorize.success(`✅ Synced all libraries: ${result.librariesProcessed} libraries, ${result.filesProcessed} files processed`));
       }
     } catch (error) {
       console.error(colorize.error(`❌ Sync failed: ${error.message}`));

@@ -5,7 +5,7 @@
 -- If it doesn't exist, create a basic files table
 CREATE TABLE IF NOT EXISTS files (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    brain_id UUID NOT NULL REFERENCES brains(id) ON DELETE CASCADE,
+    library_id UUID NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
     file_path VARCHAR(700) NOT NULL,
     file_name VARCHAR(255) NOT NULL,
     file_size BIGINT DEFAULT 0,
@@ -197,7 +197,7 @@ FROM stream_files
 ORDER BY stream_id, position;
 
 -- Add indexes for files table
-CREATE INDEX IF NOT EXISTS idx_files_brain_id ON files(brain_id);
+CREATE INDEX IF NOT EXISTS idx_files_library_id ON files(library_id);
 CREATE INDEX IF NOT EXISTS idx_files_path ON files(file_path);
 CREATE INDEX IF NOT EXISTS idx_files_hash ON files(file_hash);
 CREATE INDEX IF NOT EXISTS idx_files_type ON files(file_type);

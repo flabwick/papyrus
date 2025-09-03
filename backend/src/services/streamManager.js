@@ -1,7 +1,7 @@
 const Stream = require('../models/Stream');
 const StreamCard = require('../models/StreamCard');
 const Card = require('../models/Card');
-const Brain = require('../models/Brain');
+const Library = require('../models/Library');
 const { query } = require('../models/database');
 
 /**
@@ -11,15 +11,15 @@ const { query } = require('../models/database');
 
 class StreamManager {
   /**
-   * Create a welcome stream for a new brain with tutorial content
-   * @param {string} brainId - Brain ID
+   * Create a welcome stream for a new library with tutorial content
+   * @param {string} libraryId - Library ID
    * @returns {Promise<Stream>} - Created welcome stream
    */
-  static async createWelcomeStream(brainId) {
+  static async createWelcomeStream(libraryId) {
     // Create the welcome stream (will automatically create tutorial cards)
-    const stream = await Stream.create(brainId, 'Welcome to Your Brain', true);
+    const stream = await Stream.create(libraryId, 'Welcome to Your Library', true);
     
-    console.log(`✅ Created welcome stream for brain ${brainId}`);
+    console.log(`✅ Created welcome stream for library ${libraryId}`);
     return stream;
   }
 
@@ -176,73 +176,73 @@ class StreamManager {
   }
 
   /**
-   * Search cards for adding to streams (current brain first, then others)
-   * @param {string} brainId - Current brain ID
+   * Search cards for adding to streams (current library first, then others)
+   * @param {string} libraryId - Current library ID
    * @param {string} query - Search query
-   * @param {boolean} includeOtherBrains - Include cards from other brains (default: true)
-   * @param {string} userId - User ID for cross-brain search
-   * @returns {Promise<Object>} - Search results organized by brain
+   * @param {boolean} includeOtherLibraries - Include cards from other libraries (default: true)
+   * @param {string} userId - User ID for cross-library search
+   * @returns {Promise<Object>} - Search results organized by library
    */
-  static async searchCardsForStream(brainId, searchQuery, includeOtherBrains = true, userId = null) {
+  static async searchCardsForStream(libraryId, searchQuery, includeOtherLibraries = true, userId = null) {
     if (!searchQuery || searchQuery.trim().length === 0) {
       return {
-        currentBrain: [],
-        otherBrains: [],
+        currentLibrary: [],
+        otherLibraries: [],
         totalResults: 0
       };
     }
 
     const results = {
-      currentBrain: [],
-      otherBrains: [],
+      currentLibrary: [],
+      otherLibraries: [],
       totalResults: 0
     };
 
-    // Search current brain first
-    const currentBrainCards = await Card.search(brainId, searchQuery, { 
+    // Search current library first
+    const currentLibraryCards = await Card.search(libraryId, searchQuery, { 
       activeOnly: true, 
       limit: 25 
     });
     
-    results.currentBrain = await Promise.all(
-      currentBrainCards.map(async card => ({
+    results.currentLibrary = await Promise.all(
+      currentLibraryCards.map(async card => ({
         ...(await card.toJSON()),
-        brainName: null // Will be filled below
+        libraryName: null // Will be filled below
       }))
     );
 
-    // Get brain name for current brain
-    if (results.currentBrain.length > 0) {
-      const brain = await Brain.findById(brainId);
-      results.currentBrain.forEach(card => {
-        card.brainName = brain ? brain.name : 'Unknown Brain';
+    // Get library name for current library
+    if (results.currentLibrary.length > 0) {
+      const library = await Library.findById(libraryId);
+      results.currentLibrary.forEach(card => {
+        card.libraryName = library ? library.name : 'Unknown Library';
       });
     }
 
-    // Search other brains if requested and user ID provided
-    if (includeOtherBrains && userId) {
-      const otherBrains = await Brain.findByUserId(userId);
+    // Search other libraries if requested and user ID provided
+    if (includeOtherLibraries && userId) {
+      const otherLibraries = await Library.findByUserId(userId);
       
-      for (const brain of otherBrains) {
-        if (brain.id === brainId) continue; // Skip current brain
+      for (const library of otherLibraries) {
+        if (library.id === libraryId) continue; // Skip current library
         
-        const brainCards = await Card.search(brain.id, searchQuery, { 
+        const libraryCards = await Card.search(library.id, searchQuery, { 
           activeOnly: true, 
-          limit: 10 // Fewer results per other brain
+          limit: 10 // Fewer results per other library
         });
         
-        const cardsWithBrainName = await Promise.all(
-          brainCards.map(async card => ({
+        const cardsWithLibraryName = await Promise.all(
+          libraryCards.map(async card => ({
             ...(await card.toJSON()),
-            brainName: brain.name
+            libraryName: library.name
           }))
         );
         
-        results.otherBrains.push(...cardsWithBrainName);
+        results.otherLibraries.push(...cardsWithLibraryName);
       }
     }
 
-    results.totalResults = results.currentBrain.length + results.otherBrains.length;
+    results.totalResults = results.currentLibrary.length + results.otherLibraries.length;
     
     return results;
   }
@@ -281,7 +281,7 @@ class StreamManager {
     return {
       streamId: stream.id,
       streamName: stream.name,
-      brainId: stream.brainId,
+      libraryId: stream.libraryId,
       isFavorited: stream.isFavorited,
       createdAt: stream.createdAt,
       lastAccessedAt: stream.lastAccessedAt,
@@ -330,11 +330,11 @@ class StreamManager {
 
   /**
    * Get stream history and usage analytics
-   * @param {string} brainId - Brain ID
+   * @param {string} libraryId - Library ID
    * @param {number} limit - Number of recent streams to return (default: 10)
    * @returns {Promise<Object>} - Stream usage analytics
    */
-  static async getStreamAnalytics(brainId, limit = 10) {
+  static async getStreamAnalytics(libraryId, limit = 10) {
     const result = await query(`
       SELECT 
         s.*,
@@ -344,11 +344,11 @@ class StreamManager {
       FROM streams s
       LEFT JOIN stream_cards sc ON s.id = sc.stream_id
       LEFT JOIN cards c ON sc.card_id = c.id AND c.is_active = true
-      WHERE s.brain_id = $1
+      WHERE s.library_id = $1
       GROUP BY s.id
       ORDER BY s.last_accessed_at DESC
       LIMIT $2
-    `, [brainId, limit]);
+    `, [libraryId, limit]);
 
     const recentStreams = result.rows.map(row => ({
       id: row.id,
@@ -377,8 +377,8 @@ class StreamManager {
         JOIN cards c2 ON sc2.card_id = c2.id AND c2.is_active = true
         GROUP BY stream_id
       ) card_counts ON s.id = card_counts.stream_id
-      WHERE s.brain_id = $1
-    `, [brainId]);
+      WHERE s.library_id = $1
+    `, [libraryId]);
 
     const stats = statsResult.rows[0];
 

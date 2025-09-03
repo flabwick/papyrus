@@ -10,7 +10,7 @@ require('dotenv').config();
 const pool = new Pool({
     host: process.env.DB_HOST || 'localhost',
     port: process.env.DB_PORT || 5432,
-    database: process.env.DB_NAME || 'brain6',
+    database: process.env.DB_NAME || 'papyrus',
     user: process.env.DB_USER || 'jameschadwick',
     password: process.env.DB_PASSWORD,
 });
@@ -42,7 +42,7 @@ function validateUsername(username) {
  */
 async function createUserStorageDirectory(username) {
     const storagePath = path.join(__dirname, 'storage', username);
-    const brainsPath = path.join(storagePath, 'brains');
+    const librariesPath = path.join(storagePath, 'libraries');
     const filesPath = path.join(storagePath, 'files');
     
     try {
@@ -50,9 +50,9 @@ async function createUserStorageDirectory(username) {
         await fs.mkdir(storagePath, { recursive: true });
         console.log(`✓ Created storage directory: ${storagePath}`);
         
-        // Create brains subdirectory
-        await fs.mkdir(brainsPath, { recursive: true });
-        console.log(`✓ Created brains directory: ${brainsPath}`);
+        // Create libraries subdirectory
+        await fs.mkdir(librariesPath, { recursive: true });
+        console.log(`✓ Created libraries directory: ${librariesPath}`);
         
         // Create files subdirectory
         await fs.mkdir(filesPath, { recursive: true });
@@ -64,13 +64,13 @@ async function createUserStorageDirectory(username) {
 This directory contains all files and data for the user "${username}".
 
 ## Structure:
-- brains/: Contains brain-specific folders and files
+- libraries/: Contains library-specific folders and files
 - files/: Contains uploaded files and attachments
 
 ## Important:
 - Do not manually modify files in this directory
-- All file operations should go through the Brain6 application
-- This directory is managed by the Brain6 file system
+- All file operations should go through the Papyrus application
+- This directory is managed by the Papyrus file system
 
 Created: ${new Date().toISOString()}
 `;
@@ -149,35 +149,35 @@ async function createUser(username, password, storageQuota = 1073741824) {
 }
 
 /**
- * Creates a sample brain for the new user
+ * Creates a sample library for the new user
  * @param {string} userId 
  * @param {string} username 
- * @returns {Promise<Object>} created brain object
+ * @returns {Promise<Object>} created library object
  */
-async function createSampleBrain(userId, username) {
+async function createSampleLibrary(userId, username) {
     const client = await pool.connect();
     
     try {
-        const brainName = 'My First Brain';
-        const folderPath = `backend/storage/${username}/brains/my-first-brain`;
+        const libraryName = 'My First Library';
+        const folderPath = `backend/storage/${username}/libraries/my-first-library`;
         
-        // Create brain directory
-        const fullFolderPath = path.join(__dirname, 'storage', username, 'brains', 'my-first-brain');
+        // Create library directory
+        const fullFolderPath = path.join(__dirname, 'storage', username, 'libraries', 'my-first-library');
         await fs.mkdir(fullFolderPath, { recursive: true });
         
-        // Insert brain into database
+        // Insert library into database
         const result = await client.query(`
-            INSERT INTO brains (user_id, name, folder_path, storage_used)
+            INSERT INTO libraries (user_id, name, folder_path, storage_used)
             VALUES ($1, $2, $3, $4)
             RETURNING id, name, folder_path, created_at
-        `, [userId, brainName, folderPath, 0]);
+        `, [userId, libraryName, folderPath, 0]);
         
-        const brain = result.rows[0];
+        const library = result.rows[0];
         
         // Create a welcome card
-        const welcomeContent = `# Welcome to Brain6!
+        const welcomeContent = `# Welcome to Papyrus!
 
-This is your first brain - a knowledge base where you can store and organize your thoughts, notes, and files.
+This is your first library - a knowledge base where you can store and organize your thoughts, notes, and files.
 
 ## Getting Started:
 1. Create cards to store your knowledge
@@ -190,7 +190,7 @@ This is your first brain - a knowledge base where you can store and organize you
 - **Card Linking**: Connect related ideas with [[links]]
 - **Streams**: Organize cards into themed collections
 - **Search**: Find anything across all your cards
-- **CLI Access**: Manage your brain from the command line
+- **CLI Access**: Manage your library from the command line
 
 Happy knowledge building! 🧠
 `;
@@ -200,25 +200,25 @@ Happy knowledge building! 🧠
         
         // Create welcome card in database
         await client.query(`
-            INSERT INTO cards (brain_id, title, file_path, content_preview, file_size, card_type, is_brain_wide)
+            INSERT INTO cards (library_id, title, file_path, content_preview, file_size, card_type, is_library_wide)
             VALUES ($1, $2, $3, $4, $5, $6, $7)
         `, [
-            brain.id,
-            'Welcome to Brain6',
-            `backend/storage/${username}/brains/my-first-brain/welcome.md`,
+            library.id,
+            'Welcome to Papyrus',
+            `backend/storage/${username}/libraries/my-first-library/welcome.md`,
             welcomeContent.substring(0, 500),
             Buffer.byteLength(welcomeContent, 'utf8'),
             'file',
             true
         ]);
         
-        console.log(`✓ Created sample brain: ${brain.name}`);
+        console.log(`✓ Created sample library: ${library.name}`);
         console.log(`✓ Created welcome card at: ${welcomeFilePath}`);
         
-        return brain;
+        return library;
         
     } catch (error) {
-        throw new Error(`Failed to create sample brain: ${error.message}`);
+        throw new Error(`Failed to create sample library: ${error.message}`);
     } finally {
         client.release();
     }
@@ -257,8 +257,8 @@ async function main() {
         // Create user
         const user = await createUser(username, password, storageQuotaBytes);
         
-        // Create sample brain
-        await createSampleBrain(user.id, username);
+        // Create sample library
+        await createSampleLibrary(user.id, username);
         
         console.log('\n✅ User setup completed successfully!');
         console.log('\nNext steps:');
@@ -282,7 +282,7 @@ if (require.main === module) {
 
 module.exports = {
     createUser,
-    createSampleBrain,
+    createSampleLibrary,
     validateUsername,
     createUserStorageDirectory
 };

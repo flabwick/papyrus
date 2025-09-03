@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Card as CardType, StreamCard } from '../types';
+import { Card as CardType, WorkspaceCard } from '../types';
 import api from '../services/api';
 
 interface EPUBCardProps {
   card: CardType;
-  streamCard: StreamCard;
+  streamCard: WorkspaceCard;
   streamId: string;
-  brainId: string;
+  libraryId: string;
   depth?: number;
   onDelete: (cardId: string) => void;
   onMoveUp?: (cardId: string) => void;
@@ -39,7 +39,7 @@ const EPUBCard: React.FC<EPUBCardProps> = ({
   card,
   streamCard,
   streamId,
-  brainId,
+  libraryId,
   depth = 0,
   onDelete,
   onMoveUp,
@@ -83,7 +83,7 @@ const EPUBCard: React.FC<EPUBCardProps> = ({
 
   const loadCoverImage = async (fileId: string, coverPath: string) => {
     try {
-      const response = await api.get(`/brains/${card.brainId}/files/${fileId}/cover`, {
+      const response = await api.get(`/librarys/${card.libraryId}/files/${fileId}/cover`, {
         responseType: 'blob'
       });
       const blob = new Blob([response.data]);

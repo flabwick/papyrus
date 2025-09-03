@@ -1,6 +1,6 @@
 const express = require('express');
 const { AIProviderService } = require('../services/aiProviders');
-const CardFactory = require('../services/CardFactory');
+const PageFactory = require('../services/PageFactory');
 const { query } = require('../models/database');
 const { requireAuth } = require('../middleware/auth');
 
@@ -92,45 +92,45 @@ router.get('/models', requireAuth, async (req, res) => {
 });
 
 /**
- * GET /api/ai/stream/:cardId
- * Stream AI generation for a specific card
+ * GET /api/ai/stream/:pageId
+ * Stream AI generation for a specific page
  */
-router.get('/stream/:cardId', requireAuth, async (req, res) => {
+router.get('/stream/:pageId', requireAuth, async (req, res) => {
   try {
-    const { cardId } = req.params;
-    console.log('📨 AI stream request for card:', cardId);
+    const { pageId } = req.params;
+    console.log('📨 AI stream request for page:', pageId);
     
-    if (!cardId || !validateUUID(cardId)) {
+    if (!pageId || !validateUUID(pageId)) {
       return res.status(400).json({
-        error: 'Invalid card ID',
-        message: 'A valid card ID is required'
+        error: 'Invalid page ID',
+        message: 'A valid page ID is required'
       });
     }
 
-    // Get card details to extract generation parameters
-    const cardResult = await query(
-      'SELECT brain_id, content_preview FROM cards WHERE id = $1',
-      [cardId]
+    // Get page details to extract generation parameters
+    const pageResult = await query(
+      'SELECT brain_id, content_preview FROM pages WHERE id = $1',
+      [pageId]
     );
     
-    if (cardResult.rows.length === 0) {
+    if (pageResult.rows.length === 0) {
       return res.status(404).json({
-        error: 'Card not found',
-        message: 'The specified card does not exist'
+        error: 'Page not found',
+        message: 'The specified page does not exist'
       });
     }
 
-    const brainId = cardResult.rows[0].brain_id;
+    const brainId = pageResult.rows[0].brain_id;
     
     // Parse generation parameters from content_preview
     let params;
     try {
-      params = JSON.parse(cardResult.rows[0].content_preview || '{}');
+      params = JSON.parse(pageResult.rows[0].content_preview || '{}');
     } catch (e) {
-      params = { prompt: 'Generate content', model: 'gpt-4o', contextCardIds: [] };
+      params = { prompt: 'Generate content', model: 'gpt-4o', contextPageIds: [] };
     }
 
-    const { prompt = 'Generate content', model = 'gpt-4o', contextCardIds = [] } = params;
+    const { prompt = 'Generate content', model = 'gpt-4o', contextPageIds = [] } = params;
     
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -153,8 +153,8 @@ router.get('/stream/:cardId', requireAuth, async (req, res) => {
     const onChunk = async (chunk) => {
       currentContent += chunk;
       
-      // Update card in database
-      await query('UPDATE cards SET content_preview = $1 WHERE id = $2', [currentContent, cardId]);
+      // Update page in database
+      await query('UPDATE pages SET content_preview = $1 WHERE id = $2', [currentContent, pageId]);
       
       res.write(`data: ${JSON.stringify({
         type: 'chunk',
@@ -180,23 +180,23 @@ router.get('/stream/:cardId', requireAuth, async (req, res) => {
       res.end();
     };
 
-    // Get context cards if specified and format them properly
+    // Get context pages if specified and format them properly
     const context = [];
-    if (contextCardIds.length > 0) {
+    if (contextPageIds.length > 0) {
       const contextResult = await query(
-        'SELECT id, title, content_preview as content, created_at FROM cards WHERE id = ANY($1) AND brain_id = $2 ORDER BY created_at ASC',
-        [contextCardIds, brainId]
+        'SELECT id, title, content_preview as content, created_at FROM pages WHERE id = ANY($1) AND brain_id = $2 ORDER BY created_at ASC',
+        [contextPageIds, brainId]
       );
       
-      // Format context cards with proper structure for AI
-      context.push(...contextResult.rows.map(card => ({
-        id: card.id,
-        title: card.title || 'Untitled',
-        content: card.content || '',
-        contextText: `# ${card.title || 'Untitled'}\n\n${card.content || ''}`
+      // Format context pages with proper structure for AI
+      context.push(...contextResult.rows.map(page => ({
+        id: page.id,
+        title: page.title || 'Untitled',
+        content: page.content || '',
+        contextText: `# ${page.title || 'Untitled'}\n\n${page.content || ''}`
       })));
       
-      console.log(`📄 Using ${context.length} context cards for AI generation`);
+      console.log(`📄 Using ${context.length} context pages for AI generation`);
     }
 
     try {
@@ -225,19 +225,19 @@ router.get('/stream/:cardId', requireAuth, async (req, res) => {
 router.post('/generate-streaming', requireAuth, async (req, res) => {
   try {
     console.log('📨 AI generate streaming request received');
-    const { brainId, streamId, cardId, prompt, model, contextCardIds = [] } = req.body;
-    console.log('📝 Request details:', { brainId, streamId, cardId, model, prompt: prompt?.substring(0, 50) });
+    const { brainId, streamId, pageId, prompt, model, contextPageIds = [] } = req.body;
+    console.log('📝 Request details:', { brainId, streamId, pageId, model, prompt: prompt?.substring(0, 50) });
 
-    // Store generation parameters in the card for the streaming endpoint to use
+    // Store generation parameters in the page for the streaming endpoint to use
     await query(
-      'UPDATE cards SET content_preview = $1 WHERE id = $2',
-      [JSON.stringify({ prompt, model, contextCardIds, status: 'ready' }), cardId]
+      'UPDATE pages SET content_preview = $1 WHERE id = $2',
+      [JSON.stringify({ prompt, model, contextPageIds, status: 'ready' }), pageId]
     );
 
     res.json({
       success: true,
       message: 'Generation initiated',
-      streamUrl: `/api/ai/stream/${cardId}`
+      streamUrl: `/api/ai/stream/${pageId}`
     });
 
   } catch (error) {

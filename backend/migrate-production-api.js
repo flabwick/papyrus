@@ -12,7 +12,7 @@ async function runMigration() {
     await client.query(`
       CREATE TABLE IF NOT EXISTS files (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        brain_id UUID NOT NULL REFERENCES brains(id) ON DELETE CASCADE,
+        library_id UUID NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
         file_name VARCHAR(255) NOT NULL,
         file_type VARCHAR(50) NOT NULL,
         file_size BIGINT NOT NULL,
@@ -34,7 +34,7 @@ async function runMigration() {
       CREATE TABLE IF NOT EXISTS processing_jobs (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        brain_id UUID REFERENCES brains(id) ON DELETE CASCADE,
+        library_id UUID REFERENCES libraries(id) ON DELETE CASCADE,
         job_type VARCHAR(50) NOT NULL,
         status VARCHAR(20) NOT NULL DEFAULT 'pending',
         input_data JSONB,
@@ -55,7 +55,7 @@ async function runMigration() {
       CREATE TABLE IF NOT EXISTS upload_sessions (
         id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
         user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        brain_id UUID NOT NULL REFERENCES brains(id) ON DELETE CASCADE,
+        library_id UUID NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
         upload_id VARCHAR(50) UNIQUE NOT NULL,
         total_files INTEGER NOT NULL DEFAULT 0,
         completed_files INTEGER DEFAULT 0,
@@ -85,18 +85,18 @@ async function runMigration() {
     // Create indexes
     console.log('Creating indexes...');
     const indexes = [
-      'CREATE INDEX IF NOT EXISTS idx_files_brain_id ON files(brain_id);',
+      'CREATE INDEX IF NOT EXISTS idx_files_library_id ON files(library_id);',
       'CREATE INDEX IF NOT EXISTS idx_files_processing_status ON files(processing_status);',
       'CREATE INDEX IF NOT EXISTS idx_files_upload_method ON files(upload_method);',
       'CREATE INDEX IF NOT EXISTS idx_files_uploaded_at ON files(uploaded_at);',
       'CREATE INDEX IF NOT EXISTS idx_processing_jobs_status ON processing_jobs(status, created_at);',
       'CREATE INDEX IF NOT EXISTS idx_processing_jobs_user_id ON processing_jobs(user_id);',
-      'CREATE INDEX IF NOT EXISTS idx_processing_jobs_brain_id ON processing_jobs(brain_id);',
+      'CREATE INDEX IF NOT EXISTS idx_processing_jobs_library_id ON processing_jobs(library_id);',
       'CREATE INDEX IF NOT EXISTS idx_processing_jobs_type ON processing_jobs(job_type);',
       'CREATE INDEX IF NOT EXISTS idx_processing_jobs_priority ON processing_jobs(priority DESC, created_at);',
       'CREATE INDEX IF NOT EXISTS idx_upload_sessions_upload_id ON upload_sessions(upload_id);',
       'CREATE INDEX IF NOT EXISTS idx_upload_sessions_user_id ON upload_sessions(user_id);',
-      'CREATE INDEX IF NOT EXISTS idx_upload_sessions_brain_id ON upload_sessions(brain_id);',
+      'CREATE INDEX IF NOT EXISTS idx_upload_sessions_library_id ON upload_sessions(library_id);',
       'CREATE INDEX IF NOT EXISTS idx_upload_sessions_status ON upload_sessions(status);',
       'CREATE INDEX IF NOT EXISTS idx_card_versions_card_id ON card_versions(card_id);',
       'CREATE UNIQUE INDEX IF NOT EXISTS idx_card_versions_one_active ON card_versions(card_id) WHERE is_active = true;'

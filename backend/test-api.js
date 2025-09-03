@@ -29,7 +29,7 @@ const ADMIN_USER = {
 // Global state for session management
 let sessionCookie = null;
 let currentUser = null;
-let testBrainId = null;
+let testLibraryId = null;
 
 // Utility Functions
 function log(message, type = 'info') {
@@ -185,7 +185,7 @@ async function testUnauthorizedAccess() {
   const originalCookie = sessionCookie;
   sessionCookie = null;
   
-  const { response, data } = await makeRequest('GET', '/api/brains');
+  const { response, data } = await makeRequest('GET', '/api/libraries');
   
   if (response.status !== 401) {
     throw new Error(`Expected 401 for unauthorized access, got ${response.status}`);
@@ -195,82 +195,82 @@ async function testUnauthorizedAccess() {
   sessionCookie = originalCookie;
 }
 
-// Brain Management Tests
-async function testListBrains() {
-  const { response, data } = await makeRequest('GET', '/api/brains');
+// Library Management Tests
+async function testListLibrarys() {
+  const { response, data } = await makeRequest('GET', '/api/libraries');
   
   if (response.status !== 200) {
-    throw new Error(`Failed to list brains: ${response.status}`);
+    throw new Error(`Failed to list libraries: ${response.status}`);
   }
   
-  if (!Array.isArray(data.brains)) {
-    throw new Error('Brains response should be an array');
+  if (!Array.isArray(data.libraries)) {
+    throw new Error('Librarys response should be an array');
   }
   
-  log(`Found ${data.brains.length} existing brains`, 'info');
+  log(`Found ${data.libraries.length} existing libraries`, 'info');
 }
 
-async function testCreateBrain() {
-  const brainData = {
-    name: 'Test API Brain'
+async function testCreateLibrary() {
+  const libraryData = {
+    name: 'Test API Library'
   };
   
-  const { response, data } = await makeRequest('POST', '/api/brains', brainData);
+  const { response, data } = await makeRequest('POST', '/api/libraries', libraryData);
   
   if (response.status !== 201) {
-    throw new Error(`Failed to create brain: ${response.status} - ${JSON.stringify(data)}`);
+    throw new Error(`Failed to create library: ${response.status} - ${JSON.stringify(data)}`);
   }
   
-  if (!data.brain || !data.brain.id) {
-    throw new Error('Create brain response missing brain data');
+  if (!data.library || !data.library.id) {
+    throw new Error('Create library response missing library data');
   }
   
-  if (data.brain.name !== brainData.name) {
-    throw new Error(`Brain name mismatch: expected "${brainData.name}", got "${data.brain.name}"`);
+  if (data.library.name !== libraryData.name) {
+    throw new Error(`Library name mismatch: expected "${libraryData.name}", got "${data.library.name}"`);
   }
   
-  testBrainId = data.brain.id;
-  log(`Created brain: ${data.brain.name} (ID: ${testBrainId})`, 'success');
+  testLibraryId = data.library.id;
+  log(`Created library: ${data.library.name} (ID: ${testLibraryId})`, 'success');
 }
 
-async function testCreateDuplicateBrain() {
-  const { response, data } = await makeRequest('POST', '/api/brains', {
-    name: 'Test API Brain' // Same name as previous test
+async function testCreateDuplicateLibrary() {
+  const { response, data } = await makeRequest('POST', '/api/libraries', {
+    name: 'Test API Library' // Same name as previous test
   });
   
   if (response.status !== 400) {
-    throw new Error(`Expected 400 for duplicate brain name, got ${response.status}`);
+    throw new Error(`Expected 400 for duplicate library name, got ${response.status}`);
   }
   
   if (!data.error || !data.error.includes('already exists')) {
-    throw new Error('Error message should mention brain already exists');
+    throw new Error('Error message should mention library already exists');
   }
 }
 
-async function testGetBrainCards() {
-  if (!testBrainId) {
-    throw new Error('Test brain ID not available - create brain test may have failed');
+async function testGetLibraryCards() {
+  if (!testLibraryId) {
+    throw new Error('Test library ID not available - create library test may have failed');
   }
   
-  const { response, data } = await makeRequest('GET', `/api/brains/${testBrainId}/cards`);
+  const { response, data } = await makeRequest('GET', `/api/libraries/${testLibraryId}/cards`);
   
   if (response.status !== 200) {
-    throw new Error(`Failed to get brain cards: ${response.status}`);
+    throw new Error(`Failed to get library cards: ${response.status}`);
   }
   
   if (!Array.isArray(data.cards)) {
     throw new Error('Cards response should be an array');
   }
   
-  log(`Brain has ${data.cards.length} cards`, 'info');
+  log(`Library has ${data.cards.length} cards`, 'info');
 }
 
-async function testGetNonexistentBrain() {
+async function testGetNonexistentLibrary() {
   const fakeId = '00000000-0000-0000-0000-000000000000';
-  const { response, data } = await makeRequest('GET', `/api/brains/${fakeId}/cards`);
+  const { response, data } = await makeRequest('GET', `/api/libraries/${fakeId}/cards`);
   
   if (response.status !== 404) {
-    throw new Error(`Expected 404 for nonexistent brain, got ${response.status}`);
+    throw new Error(`Expected 404 for nonexistent library, got ${response.status}`);
   }
   
   if (!data.error) {
@@ -278,22 +278,22 @@ async function testGetNonexistentBrain() {
   }
 }
 
-async function testDeleteBrain() {
-  if (!testBrainId) {
-    throw new Error('Test brain ID not available');
+async function testDeleteLibrary() {
+  if (!testLibraryId) {
+    throw new Error('Test library ID not available');
   }
   
-  const { response, data } = await makeRequest('DELETE', `/api/brains/${testBrainId}`);
+  const { response, data } = await makeRequest('DELETE', `/api/libraries/${testLibraryId}`);
   
   if (response.status !== 200) {
-    throw new Error(`Failed to delete brain: ${response.status} - ${JSON.stringify(data)}`);
+    throw new Error(`Failed to delete library: ${response.status} - ${JSON.stringify(data)}`);
   }
   
   if (!data.message || !data.message.includes('deleted')) {
     throw new Error('Delete response should confirm deletion');
   }
   
-  log(`Deleted brain ID: ${testBrainId}`, 'success');
+  log(`Deleted library ID: ${testLibraryId}`, 'success');
 }
 
 async function testLogout() {
@@ -316,22 +316,22 @@ async function testLogout() {
 
 // Validation Tests
 async function testInputValidation() {
-  // Test empty brain name
-  const { response: emptyResponse, data: emptyData } = await makeRequest('POST', '/api/brains', {
+  // Test empty library name
+  const { response: emptyResponse, data: emptyData } = await makeRequest('POST', '/api/libraries', {
     name: ''
   });
   
   if (emptyResponse.status !== 400) {
-    throw new Error(`Expected 400 for empty brain name, got ${emptyResponse.status}`);
+    throw new Error(`Expected 400 for empty library name, got ${emptyResponse.status}`);
   }
   
-  // Test invalid brain name characters
-  const { response: invalidResponse, data: invalidData } = await makeRequest('POST', '/api/brains', {
-    name: 'Invalid/Brain*Name'
+  // Test invalid library name characters
+  const { response: invalidResponse, data: invalidData } = await makeRequest('POST', '/api/libraries', {
+    name: 'Invalid/Library*Name'
   });
   
   if (invalidResponse.status !== 400) {
-    throw new Error(`Expected 400 for invalid brain name, got ${invalidResponse.status}`);
+    throw new Error(`Expected 400 for invalid library name, got ${invalidResponse.status}`);
   }
 }
 
@@ -350,14 +350,14 @@ async function runAllTests() {
     ['Get Current User', testGetCurrentUser],
     ['Unauthorized Access Protection', testUnauthorizedAccess],
     
-    // Brain management
-    ['List User Brains', testListBrains],
-    ['Create New Brain', testCreateBrain],
-    ['Create Duplicate Brain (Should Fail)', testCreateDuplicateBrain],
-    ['Get Brain Cards', testGetBrainCards],
-    ['Get Nonexistent Brain (Should Fail)', testGetNonexistentBrain],
+    // Library management
+    ['List User Librarys', testListLibrarys],
+    ['Create New Library', testCreateLibrary],
+    ['Create Duplicate Library (Should Fail)', testCreateDuplicateLibrary],
+    ['Get Library Cards', testGetLibraryCards],
+    ['Get Nonexistent Library (Should Fail)', testGetNonexistentLibrary],
     ['Input Validation', testInputValidation],
-    ['Delete Brain', testDeleteBrain],
+    ['Delete Library', testDeleteLibrary],
     
     // Cleanup
     ['Logout', testLogout]

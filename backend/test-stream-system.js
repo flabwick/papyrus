@@ -32,13 +32,13 @@ async function testStreamSystem() {
       logTest('Stream model import', true);
       
       // Test static methods exist
-      const staticMethods = ['create', 'findById', 'findByBrainId', 'findByBrainAndName', 'cleanupExpired'];
+      const staticMethods = ['create', 'findById', 'findByLibraryId', 'findByLibraryAndName', 'cleanupExpired'];
       for (const method of staticMethods) {
         logTest(`Stream.${method} static method exists`, typeof Stream[method] === 'function');
       }
       
       // Test instance methods (create a dummy instance to test)
-      const dummyStream = new Stream({ id: 'test', brain_id: 'test', name: 'test', is_favorited: false });
+      const dummyStream = new Stream({ id: 'test', library_id: 'test', name: 'test', is_favorited: false });
       const instanceMethods = ['updateLastAccessed', 'toggleFavorite', 'update', 'delete', 'getCards', 'duplicate'];
       for (const method of instanceMethods) {
         logTest(`Stream.${method} instance method exists`, typeof dummyStream[method] === 'function');
@@ -109,19 +109,19 @@ async function testStreamSystem() {
       // Test welcome content data
       const welcomeCardTitles = welcomeContent.getWelcomeCardTitles();
       logTest('Welcome card titles returned', Array.isArray(welcomeCardTitles) && welcomeCardTitles.length > 0);
-      logTest('Welcome cards include basic tutorial', welcomeCardTitles.includes('Welcome to Your Brain'));
+      logTest('Welcome cards include basic tutorial', welcomeCardTitles.includes('Welcome to Your Library'));
       logTest('Welcome cards include streams tutorial', welcomeCardTitles.includes('Working with Streams'));
       logTest('Welcome cards include AI tutorial', welcomeCardTitles.includes('AI Context Selection'));
       
       // Test template retrieval
-      const welcomeTemplate = welcomeContent.getWelcomeCardTemplate('Welcome to Your Brain');
+      const welcomeTemplate = welcomeContent.getWelcomeCardTemplate('Welcome to Your Library');
       logTest('Welcome card template retrieved', typeof welcomeTemplate === 'string' && welcomeTemplate.length > 0);
       
       const invalidTemplate = welcomeContent.getWelcomeCardTemplate('Nonexistent Card');
       logTest('Invalid template returns null', invalidTemplate === null);
       
       // Test welcome card identification
-      logTest('Identifies welcome cards correctly', welcomeContent.isWelcomeCard('Welcome to Your Brain'));
+      logTest('Identifies welcome cards correctly', welcomeContent.isWelcomeCard('Welcome to Your Library'));
       logTest('Identifies non-welcome cards correctly', !welcomeContent.isWelcomeCard('Random Card'));
     } catch (error) {
       logTest('welcomeContent service import', false, error.message);
@@ -169,7 +169,7 @@ async function testStreamSystem() {
       logTest('Streams table exists', streamsTable.rows.length > 0);
       
       const streamColumns = streamsTable.rows.map(row => row.column_name);
-      const requiredStreamColumns = ['id', 'brain_id', 'name', 'is_favorited', 'created_at', 'last_accessed_at'];
+      const requiredStreamColumns = ['id', 'library_id', 'name', 'is_favorited', 'created_at', 'last_accessed_at'];
       
       for (const column of requiredStreamColumns) {
         logTest(`Streams table has ${column} column`, streamColumns.includes(column));
@@ -207,7 +207,7 @@ async function testStreamSystem() {
       
       const indexNames = indexes.rows.map(row => row.indexname);
       const requiredIndexes = [
-        'idx_streams_brain_id', 'idx_streams_favorited', 'idx_streams_last_accessed',
+        'idx_streams_library_id', 'idx_streams_favorited', 'idx_streams_last_accessed',
         'idx_stream_cards_stream_id', 'idx_stream_cards_card_id', 'idx_stream_cards_position'
       ];
       
@@ -219,18 +219,18 @@ async function testStreamSystem() {
       logTest('Database schema validation', false, error.message);
     }
     
-    // Test 5: Integration with Brain Creation
-    console.log('\n🧠 Testing Brain Integration...');
+    // Test 5: Integration with Library Creation
+    console.log('\n🧠 Testing Library Integration...');
     
     try {
-      const Brain = require('./src/models/Brain');
+      const Library = require('./src/models/Library');
       
-      // Check that Brain.create method includes stream manager
-      const brainCreateSource = Brain.create.toString();
-      logTest('Brain.create includes StreamManager', brainCreateSource.includes('StreamManager'));
-      logTest('Brain.create includes welcome stream creation', brainCreateSource.includes('createWelcomeStream'));
+      // Check that Library.create method includes stream manager
+      const libraryCreateSource = Library.create.toString();
+      logTest('Library.create includes StreamManager', libraryCreateSource.includes('StreamManager'));
+      logTest('Library.create includes welcome stream creation', libraryCreateSource.includes('createWelcomeStream'));
     } catch (error) {
-      logTest('Brain integration check', false, error.message);
+      logTest('Library integration check', false, error.message);
     }
     
     // Test 6: Position Management Logic
@@ -275,8 +275,8 @@ async function testStreamSystem() {
       }
       
       // Test content structure
-      const welcomeCard = welcomeContent.getWelcomeCardTemplate('Welcome to Your Brain');
-      logTest('Welcome card mentions brains', welcomeCard.includes('brain'));
+      const welcomeCard = welcomeContent.getWelcomeCardTemplate('Welcome to Your Library');
+      logTest('Welcome card mentions libraries', welcomeCard.includes('library'));
       logTest('Welcome card mentions cards', welcomeCard.includes('card'));
       logTest('Welcome card mentions streams', welcomeCard.includes('stream'));
       

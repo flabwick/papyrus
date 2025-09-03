@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Card as CardType, StreamCard } from '../types';
+import { Card as CardType, WorkspaceCard } from '../types';
 import { useApp } from '../contexts/AppContext';
 import api from '../services/api';
 
@@ -34,9 +34,9 @@ const loadPDFComponents = async () => {
 
 interface PDFCardProps {
   card: CardType;
-  streamCard: StreamCard;
+  streamCard: WorkspaceCard;
   streamId: string;
-  brainId: string;
+  libraryId: string;
   depth?: number;
   onDelete: (cardId: string) => void;
   onMoveUp?: (cardId: string) => void;
@@ -62,7 +62,7 @@ const PDFCard: React.FC<PDFCardProps> = ({
   card,
   streamCard,
   streamId,
-  brainId,
+  libraryId,
   depth = 0,
   onDelete,
   onMoveUp,

@@ -2,15 +2,15 @@ import React, { useState, useEffect } from 'react';
 import api from '../services/api';
 
 interface FileSearchInterfaceProps {
-  brainId: string;
-  streamId: string;
+  libraryId: string;
+  workspaceId: string;
   onFileSelected: (file: any) => void;
   onCancel: () => void;
 }
 
 const FileSearchInterface: React.FC<FileSearchInterfaceProps> = ({
-  brainId,
-  streamId,
+  libraryId,
+  workspaceId,
   onFileSelected,
   onCancel,
 }) => {
@@ -21,7 +21,7 @@ const FileSearchInterface: React.FC<FileSearchInterfaceProps> = ({
 
   useEffect(() => {
     loadAllFiles();
-  }, [brainId]);
+  }, [libraryId]);
 
   useEffect(() => {
     if (searchQuery.trim()) {
@@ -34,7 +34,7 @@ const FileSearchInterface: React.FC<FileSearchInterfaceProps> = ({
   const loadAllFiles = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get(`/brains/${brainId}/files`);
+      const response = await api.get(`/librarys/${libraryId}/files`);
       setAllFiles(response.data.files || []);
       setSearchResults(response.data.files || []);
     } catch (error) {
@@ -94,7 +94,7 @@ const FileSearchInterface: React.FC<FileSearchInterfaceProps> = ({
       <div className="search-header">
         <div className="search-title">
           <span className="search-icon">📁</span>
-          Add Existing File to Stream
+          Add Existing File to Workspace
         </div>
         <button onClick={onCancel} className="cancel-btn" title="Cancel">
           ✕
@@ -174,7 +174,7 @@ const FileSearchInterface: React.FC<FileSearchInterfaceProps> = ({
                         e.stopPropagation();
                         handleFileSelect(file);
                       }}
-                      title="Add this file to stream"
+                      title="Add this file to workspace"
                     >
                       Add File
                     </button>
@@ -199,7 +199,7 @@ const FileSearchInterface: React.FC<FileSearchInterfaceProps> = ({
               <>
                 <div className="no-results-icon">📁</div>
                 <div className="no-results-text">
-                  No files in this brain yet
+                  No files in this library yet
                 </div>
                 <div className="no-results-hint">
                   Upload some PDF or EPUB files to get started

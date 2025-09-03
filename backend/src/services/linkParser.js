@@ -1,21 +1,21 @@
-const Card = require('../models/Card');
-const Brain = require('../models/Brain');
+const Page = require('../models/Page');
+const Library = require('../models/Library');
 const { query, transaction } = require('../models/database');
 
 /**
  * Link Parser Service
- * Handles parsing [[card-title]] syntax and managing card relationships
+ * Handles parsing [[page-title]] syntax and managing page relationships
  */
 
 class LinkParser {
   constructor() {
     // Regex patterns for different types of links
     this.patterns = {
-      // Standard card link: [[card-title]]
+      // Standard page link: [[page-title]]
       simple: /\[\[([^\]]+)\]\]/g,
-      // Cross-brain link: [[brain-name/card-title]]
-      crossBrain: /\[\[([^/\]]+)\/([^\]]+)\]\]/g,
-      // Versioned link: [[card-title:v2]]
+      // Cross-library link: [[library-name/page-title]]
+      crossLibrary: /\[\[([^/\]]+)\/([^\]]+)\]\]/g,
+      // Versioned link: [[page-title:v2]]
       versioned: /\[\[([^:\]]+):v(\d+)\]\]/g,
       // All link patterns combined
       all: /\[\[([^\]]+)\]\]/g
@@ -23,7 +23,7 @@ class LinkParser {
   }
 
   /**
-   * Extract all card links from content
+   * Extract all page links from content
    * @param {string} content - Content to parse
    * @returns {Array<Object>} - Array of link objects
    */
@@ -74,51 +74,51 @@ class LinkParser {
       return null;
     }
 
-    // Check for cross-brain link: brain-name/card-title
-    const crossBrainMatch = trimmedText.match(/^([^/]+)\/(.+)$/);
-    if (crossBrainMatch) {
+    // Check for cross-library link: library-name/page-title
+    const crossLibraryMatch = trimmedText.match(/^([^/]+)\/(.+)$/);
+    if (crossLibraryMatch) {
       return {
-        type: 'cross-brain',
+        type: 'cross-library',
         linkText: trimmedText,
-        brainName: crossBrainMatch[1].trim(),
-        cardTitle: crossBrainMatch[2].trim(),
+        libraryName: crossLibraryMatch[1].trim(),
+        pageTitle: crossLibraryMatch[2].trim(),
         position
       };
     }
 
-    // Check for versioned link: card-title:v2
+    // Check for versioned link: page-title:v2
     const versionedMatch = trimmedText.match(/^([^:]+):v(\d+)$/);
     if (versionedMatch) {
       return {
         type: 'versioned',
         linkText: trimmedText,
-        cardTitle: versionedMatch[1].trim(),
+        pageTitle: versionedMatch[1].trim(),
         version: parseInt(versionedMatch[2]),
         position
       };
     }
 
-    // Default to simple card link
+    // Default to simple page link
     return {
       type: 'simple',
       linkText: trimmedText,
-      cardTitle: trimmedText,
+      pageTitle: trimmedText,
       position
     };
   }
 
   /**
-   * Resolve links to actual card IDs within a brain
+   * Resolve links to actual page IDs within a library
    * @param {Array<Object>} links - Array of parsed links
-   * @param {string} sourceBrainId - Brain ID where the links are found
-   * @param {string} sourceUserId - User ID for cross-brain access validation
+   * @param {string} sourceLibraryId - Library ID where the links are found
+   * @param {string} sourceUserId - User ID for cross-library access validation
    * @returns {Promise<Array<Object>>} - Array of resolved links
    */
-  async resolveLinks(links, sourceBrainId, sourceUserId) {
+  async resolveLinks(links, sourceLibraryId, sourceUserId) {
     const resolvedLinks = [];
 
     for (const link of links) {
-      const resolved = await this.resolveLink(link, sourceBrainId, sourceUserId);
+      const resolved = await this.resolveLink(link, sourceLibraryId, sourceUserId);
       resolvedLinks.push(resolved);
     }
 
@@ -126,51 +126,51 @@ class LinkParser {
   }
 
   /**
-   * Resolve single link to card ID
+   * Resolve single link to page ID
    * @param {Object} link - Parsed link object
-   * @param {string} sourceBrainId - Source brain ID
+   * @param {string} sourceLibraryId - Source library ID
    * @param {string} sourceUserId - User ID for validation
-   * @returns {Promise<Object>} - Resolved link with card ID or error
+   * @returns {Promise<Object>} - Resolved link with page ID or error
    */
-  async resolveLink(link, sourceBrainId, sourceUserId) {
+  async resolveLink(link, sourceLibraryId, sourceUserId) {
     const resolved = {
       ...link,
-      targetCardId: null,
-      targetBrainId: null,
+      targetPageId: null,
+      targetLibraryId: null,
       isValid: false,
       error: null
     };
 
     try {
-      if (link.type === 'cross-brain') {
-        // Find target brain
-        const targetBrain = await Brain.findByUserAndName(sourceUserId, link.brainName);
-        if (!targetBrain) {
-          resolved.error = `Brain '${link.brainName}' not found`;
+      if (link.type === 'cross-library') {
+        // Find target library
+        const targetLibrary = await Library.findByUserAndName(sourceUserId, link.libraryName);
+        if (!targetLibrary) {
+          resolved.error = `Library '${link.libraryName}' not found`;
           return resolved;
         }
 
-        // Find card in target brain
-        const targetCard = await Card.findByBrainAndTitle(targetBrain.id, link.cardTitle);
-        if (!targetCard) {
-          resolved.error = `Card '${link.cardTitle}' not found in brain '${link.brainName}'`;
+        // Find page in target library
+        const targetPage = await Page.findByLibraryAndTitle(targetLibrary.id, link.pageTitle);
+        if (!targetPage) {
+          resolved.error = `Page '${link.pageTitle}' not found in library '${link.libraryName}'`;
           return resolved;
         }
 
-        resolved.targetCardId = targetCard.id;
-        resolved.targetBrainId = targetBrain.id;
+        resolved.targetPageId = targetPage.id;
+        resolved.targetLibraryId = targetLibrary.id;
         resolved.isValid = true;
 
       } else {
-        // Simple or versioned link - look in same brain
-        const targetCard = await Card.findByBrainAndTitle(sourceBrainId, link.cardTitle);
-        if (!targetCard) {
-          resolved.error = `Card '${link.cardTitle}' not found`;
+        // Simple or versioned link - look in same library
+        const targetPage = await Page.findByLibraryAndTitle(sourceLibraryId, link.pageTitle);
+        if (!targetPage) {
+          resolved.error = `Page '${link.pageTitle}' not found`;
           return resolved;
         }
 
-        resolved.targetCardId = targetCard.id;
-        resolved.targetBrainId = sourceBrainId;
+        resolved.targetPageId = targetPage.id;
+        resolved.targetLibraryId = sourceLibraryId;
         resolved.isValid = true;
       }
 
@@ -183,22 +183,22 @@ class LinkParser {
   }
 
   /**
-   * Update card links in database
-   * @param {string} sourceCardId - Source card ID
+   * Update page links in database
+   * @param {string} sourcePageId - Source page ID
    * @param {Array<Object>} resolvedLinks - Array of resolved links
    * @returns {Promise<void>}
    */
-  async updateCardLinks(sourceCardId, resolvedLinks) {
+  async updatePageLinks(sourcePageId, resolvedLinks) {
     await transaction(async (client) => {
-      // Delete existing links for this card
+      // Delete existing links for this page
       await client.query(
-        'DELETE FROM card_links WHERE source_card_id = $1',
-        [sourceCardId]
+        'DELETE FROM page_links WHERE source_page_id = $1',
+        [sourcePageId]
       );
 
       // Insert new links
       for (const link of resolvedLinks) {
-        // Count instances of the same link text to handle multiple links to same card
+        // Count instances of the same link text to handle multiple links to same page
         const sameLinks = resolvedLinks.filter(l => 
           l.linkText === link.linkText && 
           l.position <= link.position
@@ -206,13 +206,13 @@ class LinkParser {
         const linkInstance = sameLinks.length;
 
         await client.query(`
-          INSERT INTO card_links (
-            source_card_id, target_card_id, link_text, position_in_source, 
+          INSERT INTO page_links (
+            source_page_id, target_page_id, link_text, position_in_source, 
             link_instance, is_valid, created_at
           ) VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
         `, [
-          sourceCardId,
-          link.targetCardId, // Can be null for broken links
+          sourcePageId,
+          link.targetPageId, // Can be null for broken links
           link.linkText,
           link.position,
           linkInstance,
@@ -220,33 +220,33 @@ class LinkParser {
         ]);
       }
 
-      console.log(`✅ Updated ${resolvedLinks.length} links for card ${sourceCardId}`);
+      console.log(`✅ Updated ${resolvedLinks.length} links for page ${sourcePageId}`);
     });
   }
 
   /**
-   * Process all links in card content and update database
-   * @param {string} sourceCardId - Source card ID
-   * @param {string} content - Card content to parse
+   * Process all links in page content and update database
+   * @param {string} sourcePageId - Source page ID
+   * @param {string} content - Page content to parse
    * @returns {Promise<Object>} - Processing results
    */
-  async processCardLinks(sourceCardId, content) {
+  async processPageLinks(sourcePageId, content) {
     try {
-      // Get card and brain info
-      const sourceCard = await Card.findById(sourceCardId);
-      if (!sourceCard) {
-        throw new Error('Source card not found');
+      // Get page and library info
+      const sourcePage = await Page.findById(sourcePageId);
+      if (!sourcePage) {
+        throw new Error('Source page not found');
       }
 
-      const brain = await Brain.findById(sourceCard.brainId);
-      if (!brain) {
-        throw new Error('Brain not found');
+      const library = await Library.findById(sourcePage.libraryId);
+      if (!library) {
+        throw new Error('Library not found');
       }
 
-      // Get user ID for cross-brain link validation
+      // Get user ID for cross-library link validation
       const userResult = await query(
-        'SELECT user_id FROM brains WHERE id = $1',
-        [brain.id]
+        'SELECT user_id FROM libraries WHERE id = $1',
+        [library.id]
       );
       
       if (userResult.rows.length === 0) {
@@ -260,7 +260,7 @@ class LinkParser {
       
       if (links.length === 0) {
         // No links found, clear existing links
-        await this.updateCardLinks(sourceCardId, []);
+        await this.updatePageLinks(sourcePageId, []);
         return {
           success: true,
           linksFound: 0,
@@ -271,10 +271,10 @@ class LinkParser {
       }
 
       // Resolve links
-      const resolvedLinks = await this.resolveLinks(links, sourceCard.brainId, userId);
+      const resolvedLinks = await this.resolveLinks(links, sourcePage.libraryId, userId);
       
       // Update database
-      await this.updateCardLinks(sourceCardId, resolvedLinks);
+      await this.updatePageLinks(sourcePageId, resolvedLinks);
 
       // Generate summary
       const results = {
@@ -288,16 +288,16 @@ class LinkParser {
           position: link.position,
           isValid: link.isValid,
           error: link.error,
-          targetCardId: link.targetCardId
+          targetPageId: link.targetPageId
         }))
       };
 
-      console.log(`✅ Processed ${results.linksFound} links for card ${sourceCardId}: ${results.linksResolved} valid, ${results.brokenLinks} broken`);
+      console.log(`✅ Processed ${results.linksFound} links for page ${sourcePageId}: ${results.linksResolved} valid, ${results.brokenLinks} broken`);
       
       return results;
 
     } catch (error) {
-      console.error(`❌ Error processing card links for ${sourceCardId}:`, error.message);
+      console.error(`❌ Error processing page links for ${sourcePageId}:`, error.message);
       return {
         success: false,
         error: error.message,
@@ -309,22 +309,22 @@ class LinkParser {
   }
 
   /**
-   * Get all broken links in a brain
-   * @param {string} brainId - Brain ID
+   * Get all broken links in a library
+   * @param {string} libraryId - Library ID
    * @returns {Promise<Array<Object>>} - Array of broken links with context
    */
-  async getBrokenLinks(brainId) {
+  async getBrokenLinks(libraryId) {
     const result = await query(`
       SELECT cl.*, c.title as source_title
-      FROM card_links cl
-      JOIN cards c ON cl.source_card_id = c.id
-      WHERE c.brain_id = $1 AND cl.is_valid = false AND c.is_active = true
+      FROM page_links cl
+      JOIN pages c ON cl.source_page_id = c.id
+      WHERE c.library_id = $1 AND cl.is_valid = false AND c.is_active = true
       ORDER BY c.title, cl.position_in_source
-    `, [brainId]);
+    `, [libraryId]);
 
     return result.rows.map(row => ({
-      sourceCardId: row.source_card_id,
-      sourceCardTitle: row.source_title,
+      sourcePageId: row.source_page_id,
+      sourcePageTitle: row.source_title,
       linkText: row.link_text,
       position: row.position_in_source,
       linkInstance: row.link_instance,
@@ -334,12 +334,12 @@ class LinkParser {
 
   /**
    * Fix broken links by trying to resolve them again
-   * @param {string} brainId - Brain ID
+   * @param {string} libraryId - Library ID
    * @returns {Promise<Object>} - Repair results
    */
-  async repairBrokenLinks(brainId) {
+  async repairBrokenLinks(libraryId) {
     try {
-      const brokenLinks = await this.getBrokenLinks(brainId);
+      const brokenLinks = await this.getBrokenLinks(libraryId);
       
       if (brokenLinks.length === 0) {
         return {
@@ -352,21 +352,21 @@ class LinkParser {
 
       let repaired = 0;
       
-      // Group broken links by source card
-      const linksByCard = {};
+      // Group broken links by source page
+      const linksByPage = {};
       for (const link of brokenLinks) {
-        if (!linksByCard[link.sourceCardId]) {
-          linksByCard[link.sourceCardId] = [];
+        if (!linksByPage[link.sourcePageId]) {
+          linksByPage[link.sourcePageId] = [];
         }
-        linksByCard[link.sourceCardId].push(link);
+        linksByPage[link.sourcePageId].push(link);
       }
 
-      // Reprocess links for each card
-      for (const [sourceCardId, cardLinks] of Object.entries(linksByCard)) {
-        const card = await Card.findById(sourceCardId);
-        if (card) {
-          const content = await card.getContent();
-          const result = await this.processCardLinks(sourceCardId, content);
+      // Reprocess links for each page
+      for (const [sourcePageId, pageLinks] of Object.entries(linksByPage)) {
+        const page = await Page.findById(sourcePageId);
+        if (page) {
+          const content = await page.getContent();
+          const result = await this.processPageLinks(sourcePageId, content);
           
           if (result.success && result.linksResolved > 0) {
             repaired += result.linksResolved;
@@ -382,7 +382,7 @@ class LinkParser {
       };
 
     } catch (error) {
-      console.error(`❌ Error repairing broken links in brain ${brainId}:`, error.message);
+      console.error(`❌ Error repairing broken links in library ${libraryId}:`, error.message);
       return {
         success: false,
         error: error.message
@@ -391,22 +391,22 @@ class LinkParser {
   }
 
   /**
-   * Get link statistics for a brain
-   * @param {string} brainId - Brain ID
+   * Get link statistics for a library
+   * @param {string} libraryId - Library ID
    * @returns {Promise<Object>} - Link statistics
    */
-  async getLinkStats(brainId) {
+  async getLinkStats(libraryId) {
     const result = await query(`
       SELECT 
         COUNT(*) as total_links,
         COUNT(CASE WHEN is_valid = true THEN 1 END) as valid_links,
         COUNT(CASE WHEN is_valid = false THEN 1 END) as broken_links,
-        COUNT(DISTINCT source_card_id) as cards_with_links,
-        COUNT(DISTINCT target_card_id) as referenced_cards
-      FROM card_links cl
-      JOIN cards c ON cl.source_card_id = c.id
-      WHERE c.brain_id = $1 AND c.is_active = true
-    `, [brainId]);
+        COUNT(DISTINCT source_page_id) as pages_with_links,
+        COUNT(DISTINCT target_page_id) as referenced_pages
+      FROM page_links cl
+      JOIN pages c ON cl.source_page_id = c.id
+      WHERE c.library_id = $1 AND c.is_active = true
+    `, [libraryId]);
 
     const stats = result.rows[0];
     
@@ -414,8 +414,8 @@ class LinkParser {
       totalLinks: parseInt(stats.total_links),
       validLinks: parseInt(stats.valid_links),
       brokenLinks: parseInt(stats.broken_links),
-      cardsWithLinks: parseInt(stats.cards_with_links),
-      referencedCards: parseInt(stats.referenced_cards),
+      pagesWithLinks: parseInt(stats.pages_with_links),
+      referencedPages: parseInt(stats.referenced_pages),
       linkHealth: stats.total_links > 0 ? 
         (parseInt(stats.valid_links) / parseInt(stats.total_links) * 100).toFixed(1) : 
         100
@@ -423,21 +423,21 @@ class LinkParser {
   }
 
   /**
-   * Find all cards that reference a specific card (backlinks)
-   * @param {string} targetCardId - Target card ID
-   * @returns {Promise<Array<Object>>} - Array of cards with link info
+   * Find all pages that reference a specific page (backlinks)
+   * @param {string} targetPageId - Target page ID
+   * @returns {Promise<Array<Object>>} - Array of pages with link info
    */
-  async getBacklinks(targetCardId) {
+  async getBacklinks(targetPageId) {
     const result = await query(`
       SELECT c.*, cl.link_text, cl.position_in_source, cl.link_instance
-      FROM cards c
-      JOIN card_links cl ON c.id = cl.source_card_id
-      WHERE cl.target_card_id = $1 AND cl.is_valid = true AND c.is_active = true
+      FROM pages c
+      JOIN page_links cl ON c.id = cl.source_page_id
+      WHERE cl.target_page_id = $1 AND cl.is_valid = true AND c.is_active = true
       ORDER BY c.title, cl.position_in_source
-    `, [targetCardId]);
+    `, [targetPageId]);
 
     return result.rows.map(row => ({
-      card: new Card(row),
+      page: new Page(row),
       linkText: row.link_text,
       position: row.position_in_source,
       linkInstance: row.link_instance
@@ -445,21 +445,21 @@ class LinkParser {
   }
 
   /**
-   * Find all cards that a specific card links to (forward links)
-   * @param {string} sourceCardId - Source card ID
-   * @returns {Promise<Array<Object>>} - Array of cards with link info
+   * Find all pages that a specific page links to (forward links)
+   * @param {string} sourcePageId - Source page ID
+   * @returns {Promise<Array<Object>>} - Array of pages with link info
    */
-  async getForwardLinks(sourceCardId) {
+  async getForwardLinks(sourcePageId) {
     const result = await query(`
       SELECT c.*, cl.link_text, cl.position_in_source, cl.link_instance
-      FROM cards c
-      JOIN card_links cl ON c.id = cl.target_card_id
-      WHERE cl.source_card_id = $1 AND cl.is_valid = true AND c.is_active = true
+      FROM pages c
+      JOIN page_links cl ON c.id = cl.target_page_id
+      WHERE cl.source_page_id = $1 AND cl.is_valid = true AND c.is_active = true
       ORDER BY cl.position_in_source
-    `, [sourceCardId]);
+    `, [sourcePageId]);
 
     return result.rows.map(row => ({
-      card: new Card(row),
+      page: new Page(row),
       linkText: row.link_text,
       position: row.position_in_source,
       linkInstance: row.link_instance
@@ -469,11 +469,11 @@ class LinkParser {
   /**
    * Preview how content would be parsed (without updating database)
    * @param {string} content - Content to preview
-   * @param {string} brainId - Brain ID for context
-   * @param {string} userId - User ID for cross-brain validation
+   * @param {string} libraryId - Library ID for context
+   * @param {string} userId - User ID for cross-library validation
    * @returns {Promise<Object>} - Preview results
    */
-  async previewLinks(content, brainId, userId) {
+  async previewLinks(content, libraryId, userId) {
     try {
       const links = this.extractLinks(content);
       
@@ -485,7 +485,7 @@ class LinkParser {
         };
       }
 
-      const resolvedLinks = await this.resolveLinks(links, brainId, userId);
+      const resolvedLinks = await this.resolveLinks(links, libraryId, userId);
       
       return {
         success: true,
@@ -496,7 +496,7 @@ class LinkParser {
           position: link.position,
           isValid: link.isValid,
           error: link.error,
-          willLink: link.isValid ? `Card: ${link.targetCardId}` : 'No target'
+          willLink: link.isValid ? `Page: ${link.targetPageId}` : 'No target'
         }))
       };
 

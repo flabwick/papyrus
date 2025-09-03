@@ -23,9 +23,9 @@ CREATE INDEX IF NOT EXISTS idx_stream_cards_position ON stream_cards(stream_id, 
 CREATE INDEX IF NOT EXISTS idx_stream_cards_ai_context ON stream_cards(stream_id, is_in_ai_context);
 CREATE INDEX IF NOT EXISTS idx_stream_cards_depth ON stream_cards(stream_id, depth);
 
--- Grant permissions to brain6_user
-GRANT ALL PRIVILEGES ON TABLE stream_cards TO brain6_user;
-GRANT USAGE, SELECT ON SEQUENCE stream_cards_id_seq TO brain6_user;
+-- Grant permissions to papyrus_user
+GRANT ALL PRIVILEGES ON TABLE stream_cards TO papyrus_user;
+GRANT USAGE, SELECT ON SEQUENCE stream_cards_id_seq TO papyrus_user;
 
 -- Remove deprecated column if it exists
 DO $$ 

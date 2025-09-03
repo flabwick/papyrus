@@ -103,9 +103,9 @@ FROM cards
 WHERE is_active = true
 GROUP BY brain_id, card_type;
 
--- Grant permissions to brain6_user
-GRANT ALL PRIVILEGES ON TABLE cards TO brain6_user;
-GRANT SELECT ON card_types_summary TO brain6_user;
+-- Grant permissions to papyrus_user
+GRANT ALL PRIVILEGES ON TABLE cards TO papyrus_user;
+GRANT SELECT ON card_types_summary TO papyrus_user;
 
 -- Migration validation queries
 DO $$

@@ -24,25 +24,25 @@ function validateUsername(username) {
 }
 
 /**
- * Validates brain name for file system safety
- * @param {string} brainName - Brain name to validate
+ * Validates library name for file system safety
+ * @param {string} libraryName - Library name to validate
  * @returns {boolean} - True if valid
  */
-function validateBrainName(brainName) {
-  if (!brainName || typeof brainName !== 'string') return false;
+function validateLibraryName(libraryName) {
+  if (!libraryName || typeof libraryName !== 'string') return false;
   
   // Allow alphanumeric, hyphens, underscores, spaces (will convert to hyphens)
-  const brainNameRegex = /^[a-zA-Z0-9-_ ]+$/;
-  return brainNameRegex.test(brainName) && brainName.length >= 1 && brainName.length <= 50;
+  const libraryNameRegex = /^[a-zA-Z0-9-_ ]+$/;
+  return libraryNameRegex.test(libraryName) && libraryName.length >= 1 && libraryName.length <= 50;
 }
 
 /**
- * Sanitizes brain name for file system use
- * @param {string} brainName - Brain name to sanitize
+ * Sanitizes library name for file system use
+ * @param {string} libraryName - Library name to sanitize
  * @returns {string} - Sanitized name safe for file system
  */
-function sanitizeBrainName(brainName) {
-  return brainName
+function sanitizeLibraryName(libraryName) {
+  return libraryName
     .toLowerCase()
     .replace(/\s+/g, '-')  // Replace spaces with hyphens
     .replace(/[^a-z0-9-]/g, '')  // Remove any other characters
@@ -102,11 +102,11 @@ async function createUserDirectory(username) {
   }
 
   const userPath = path.join(STORAGE_BASE, username);
-  const brainsPath = path.join(userPath, 'brains');
+  const librariesPath = path.join(userPath, 'libraries');
   
   try {
-    // Create user directory and brains subdirectory
-    await ensureDirectoryExists(brainsPath);
+    // Create user directory and libraries subdirectory
+    await ensureDirectoryExists(librariesPath);
     
     // Create user config file
     const userConfig = {
@@ -127,72 +127,72 @@ async function createUserDirectory(username) {
 }
 
 /**
- * Creates brain directory structure within user directory
+ * Creates library directory structure within user directory
  * @param {string} username - Username
- * @param {string} brainName - Brain name
- * @returns {Promise<string>} - Path to created brain directory
+ * @param {string} libraryName - Library name
+ * @returns {Promise<string>} - Path to created library directory
  */
-async function createBrainDirectory(username, brainName) {
+async function createLibraryDirectory(username, libraryName) {
   if (!validateUsername(username)) {
     throw new Error(`Invalid username: ${username}`);
   }
   
-  if (!validateBrainName(brainName)) {
-    throw new Error(`Invalid brain name: ${brainName}. Must be 1-50 characters, alphanumeric, hyphens, underscores, or spaces.`);
+  if (!validateLibraryName(libraryName)) {
+    throw new Error(`Invalid library name: ${libraryName}. Must be 1-50 characters, alphanumeric, hyphens, underscores, or spaces.`);
   }
 
-  const sanitizedBrainName = sanitizeBrainName(brainName);
-  if (!sanitizedBrainName) {
-    throw new Error(`Brain name results in empty string after sanitization: ${brainName}`);
+  const sanitizedLibraryName = sanitizeLibraryName(libraryName);
+  if (!sanitizedLibraryName) {
+    throw new Error(`Library name results in empty string after sanitization: ${libraryName}`);
   }
 
   const userPath = path.join(STORAGE_BASE, username);
-  const brainPath = path.join(userPath, 'brains', sanitizedBrainName);
-  const cardsPath = path.join(brainPath, 'cards');
-  const filesPath = path.join(brainPath, 'files');
+  const libraryPath = path.join(userPath, 'libraries', sanitizedLibraryName);
+  const cardsPath = path.join(libraryPath, 'cards');
+  const filesPath = path.join(libraryPath, 'files');
   
   try {
     // Ensure user directory exists first
-    await ensureDirectoryExists(path.join(userPath, 'brains'));
+    await ensureDirectoryExists(path.join(userPath, 'libraries'));
     
-    // Create brain directory structure
+    // Create library directory structure
     await ensureDirectoryExists(cardsPath);
     await ensureDirectoryExists(filesPath);
     
-    // Create brain config file
-    const brainConfig = {
-      name: brainName,
-      sanitizedName: sanitizedBrainName,
+    // Create library config file
+    const libraryConfig = {
+      name: libraryName,
+      sanitizedName: sanitizedLibraryName,
       username,
       createdAt: new Date().toISOString(),
       version: '1.0'
     };
     
-    const configPath = path.join(brainPath, '.brain-config.json');
-    await fs.writeJson(configPath, brainConfig, { spaces: 2 });
+    const configPath = path.join(libraryPath, '.library-config.json');
+    await fs.writeJson(configPath, libraryConfig, { spaces: 2 });
     
-    console.log(`✅ Created brain directory: ${brainPath}`);
-    return brainPath;
+    console.log(`✅ Created library directory: ${libraryPath}`);
+    return libraryPath;
   } catch (error) {
-    throw new Error(`Failed to create brain directory for ${username}/${brainName}: ${error.message}`);
+    throw new Error(`Failed to create library directory for ${username}/${libraryName}: ${error.message}`);
   }
 }
 
 /**
- * Scans brain directory for all files and returns metadata
- * @param {string} brainPath - Path to brain directory
+ * Scans library directory for all files and returns metadata
+ * @param {string} libraryPath - Path to library directory
  * @returns {Promise<Array>} - Array of file metadata objects
  */
-async function scanBrainFiles(brainPath) {
+async function scanLibraryFiles(libraryPath) {
   try {
     const files = [];
     
-    if (!(await getFileStats(brainPath))) {
-      throw new Error(`Brain directory does not exist: ${brainPath}`);
+    if (!(await getFileStats(libraryPath))) {
+      throw new Error(`Library directory does not exist: ${libraryPath}`);
     }
     
     // Scan cards directory
-    const cardsPath = path.join(brainPath, 'cards');
+    const cardsPath = path.join(libraryPath, 'cards');
     if (await getFileStats(cardsPath)) {
       const cardFiles = await fs.readdir(cardsPath);
       for (const fileName of cardFiles) {
@@ -218,7 +218,7 @@ async function scanBrainFiles(brainPath) {
     }
     
     // Scan files directory
-    const filesPath = path.join(brainPath, 'files');
+    const filesPath = path.join(libraryPath, 'files');
     if (await getFileStats(filesPath)) {
       const uploadedFiles = await fs.readdir(filesPath);
       for (const fileName of uploadedFiles) {
@@ -245,12 +245,12 @@ async function scanBrainFiles(brainPath) {
     
     return files;
   } catch (error) {
-    throw new Error(`Failed to scan brain files at ${brainPath}: ${error.message}`);
+    throw new Error(`Failed to scan library files at ${libraryPath}: ${error.message}`);
   }
 }
 
 /**
- * Gets user's storage usage by scanning all brain directories
+ * Gets user's storage usage by scanning all library directories
  * @param {string} username - Username
  * @returns {Promise<number>} - Total storage used in bytes
  */
@@ -268,18 +268,18 @@ async function getUserStorageUsage(username) {
       return 0; // User directory doesn't exist
     }
     
-    const brainsPath = path.join(userPath, 'brains');
-    if (await getFileStats(brainsPath)) {
-      const brainDirs = await fs.readdir(brainsPath);
+    const librariesPath = path.join(userPath, 'libraries');
+    if (await getFileStats(librariesPath)) {
+      const libraryDirs = await fs.readdir(librariesPath);
       
-      for (const brainDir of brainDirs) {
-        if (brainDir.startsWith('.')) continue;
+      for (const libraryDir of libraryDirs) {
+        if (libraryDir.startsWith('.')) continue;
         
-        const brainPath = path.join(brainsPath, brainDir);
-        const stats = await getFileStats(brainPath);
+        const libraryPath = path.join(librariesPath, libraryDir);
+        const stats = await getFileStats(libraryPath);
         
         if (stats && stats.isDirectory()) {
-          const files = await scanBrainFiles(brainPath);
+          const files = await scanLibraryFiles(libraryPath);
           totalSize += files.reduce((sum, file) => sum + file.size, 0);
         }
       }
@@ -350,52 +350,52 @@ async function listUsers() {
 }
 
 /**
- * Lists all brain directories for a user
+ * Lists all library directories for a user
  * @param {string} username - Username
- * @returns {Promise<Array>} - Array of brain directory names
+ * @returns {Promise<Array>} - Array of library directory names
  */
-async function listUserBrains(username) {
+async function listUserLibrarys(username) {
   if (!validateUsername(username)) {
     throw new Error(`Invalid username: ${username}`);
   }
 
-  const brainsPath = path.join(STORAGE_BASE, username, 'brains');
+  const librariesPath = path.join(STORAGE_BASE, username, 'libraries');
   
   try {
-    if (!(await getFileStats(brainsPath))) {
+    if (!(await getFileStats(librariesPath))) {
       return [];
     }
     
-    const items = await fs.readdir(brainsPath);
-    const brains = [];
+    const items = await fs.readdir(librariesPath);
+    const libraries = [];
     
     for (const item of items) {
       if (item.startsWith('.')) continue;
       
-      const itemPath = path.join(brainsPath, item);
+      const itemPath = path.join(librariesPath, item);
       const stats = await getFileStats(itemPath);
       
       if (stats && stats.isDirectory()) {
-        brains.push(item);
+        libraries.push(item);
       }
     }
     
-    return brains.sort();
+    return libraries.sort();
   } catch (error) {
-    throw new Error(`Failed to list brains for user ${username}: ${error.message}`);
+    throw new Error(`Failed to list libraries for user ${username}: ${error.message}`);
   }
 }
 
 module.exports = {
   // Validation functions
   validateUsername,
-  validateBrainName,
-  sanitizeBrainName,
+  validateLibraryName,
+  sanitizeLibraryName,
   
   // Core operations
   createUserDirectory,
-  createBrainDirectory,
-  scanBrainFiles,
+  createLibraryDirectory,
+  scanLibraryFiles,
   
   // Utility functions
   ensureDirectoryExists,
@@ -406,7 +406,7 @@ module.exports = {
   // Management functions
   archiveUserDirectory,
   listUsers,
-  listUserBrains,
+  listUserLibrarys,
   
   // Constants
   STORAGE_BASE

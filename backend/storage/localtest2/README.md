@@ -8,7 +8,7 @@ This directory contains all files and data for the user "localtest2".
 
 ## Important:
 - Do not manually modify files in this directory
-- All file operations should go through the Brain6 application
-- This directory is managed by the Brain6 file system
+- All file operations should go through the Papyrus application
+- This directory is managed by the Papyrus file system
 
 Created: 2025-08-18T02:59:18.478Z

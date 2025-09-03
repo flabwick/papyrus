@@ -507,8 +507,8 @@ NODE_ENV=development
 # Database
 DB_HOST=localhost
 DB_PORT=5433
-DB_NAME=brain6
-DB_USER=brain6_user
+DB_NAME=papyrus
+DB_USER=papyrus_user
 DB_PASSWORD=your-password
 
 # File Upload Configuration

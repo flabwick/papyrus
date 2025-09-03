@@ -66,12 +66,12 @@ async function getUserDetails(username) {
     throw new Error(`User '${username}' not found`);
   }
   
-  // Get user's brains
-  const Brain = require('../../src/models/Brain');
-  const brains = await Brain.findByUserId(user.id);
+  // Get user's libraries
+  const Library = require('../../src/models/Library');
+  const libraries = await Library.findByUserId(user.id);
   
   const result = user.toJSON();
-  result.brains = await Promise.all(brains.map(brain => brain.toJSON()));
+  result.libraries = await Promise.all(libraries.map(library => library.toJSON()));
   
   return result;
 }

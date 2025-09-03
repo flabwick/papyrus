@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { Card as CardType, StreamCard } from '../types';
+import { Card as CardType, WorkspaceCard } from '../types';
 import { useApp } from '../contexts/AppContext';
 import api from '../services/api';
 import CardSearchInterface from './CardSearchInterface';
@@ -12,14 +12,14 @@ import EPUBCard from './EPUBCard';
 
 interface CardProps {
   card: CardType;
-  streamCard: StreamCard;
-  streamId: string;
-  brainId: string;
+  workspaceCard: WorkspaceCard;
+  workspaceId: string;
+  libraryId: string;
   depth?: number;
   onUpdate: (cardId: string, updates: Partial<CardType>) => void;
-  onDelete: (cardId: string) => void; // Remove from stream
-  onDeleteFromBrain?: (cardId: string) => void; // Delete completely from brain
-  onToggleCollapse?: (streamCardId: string) => void; // Made optional since we handle display locally now
+  onDelete: (cardId: string) => void; // Remove from workspace
+  onDeleteFromBrain?: (cardId: string) => void; // Delete completely from library
+  onToggleCollapse?: (workspaceCardId: string) => void; // Made optional since we handle display locally now
   onAddCardBelow?: (afterPosition: number) => void;
   onCreateCardBelow?: (afterPosition: number) => void;
   onGenerateCardBelow?: (afterPosition: number, prompt: string, model: string) => void;
@@ -44,9 +44,9 @@ interface CardProps {
 
 const Card: React.FC<CardProps> = ({
   card,
-  streamCard,
-  streamId,
-  brainId,
+  workspaceCard,
+  workspaceId,
+  libraryId,
   depth = 0,
   onUpdate,
   onDelete,
@@ -155,7 +155,7 @@ const Card: React.FC<CardProps> = ({
           
           // Check for title conflict error
           if (error.response?.status === 409 || error.response?.data?.message?.includes('already exists')) {
-            setTitleError(`A card with the title "${newTitle}" already exists in this brain`);
+            setTitleError(`A card with the title "${newTitle}" already exists in this library`);
             return; // Don't proceed with fallback
           }
           
@@ -165,7 +165,7 @@ const Card: React.FC<CardProps> = ({
             setTitleError(null);
           } catch (fallbackError: any) {
             if (fallbackError.response?.status === 409 || fallbackError.response?.data?.message?.includes('already exists')) {
-              setTitleError(`A card with the title "${newTitle}" already exists in this brain`);
+              setTitleError(`A card with the title "${newTitle}" already exists in this library`);
             }
           }
         }
@@ -175,7 +175,7 @@ const Card: React.FC<CardProps> = ({
           setTitleError(null); // Clear any previous errors
         } catch (error: any) {
           if (error.response?.status === 409 || error.response?.data?.message?.includes('already exists')) {
-            setTitleError(`A card with the title "${newTitle}" already exists in this brain`);
+            setTitleError(`A card with the title "${newTitle}" already exists in this library`);
             return; // Don't close editing mode
           }
           throw error; // Re-throw other errors
@@ -314,9 +314,9 @@ const Card: React.FC<CardProps> = ({
       return (
         <PDFCard
           card={card}
-          streamCard={streamCard}
-          streamId={streamId}
-          brainId={brainId}
+          workspaceCard={workspaceCard}
+          workspaceId={workspaceId}
+          libraryId={libraryId}
           depth={depth}
           onDelete={onDelete}
           onMoveUp={onMoveUp}
@@ -329,9 +329,9 @@ const Card: React.FC<CardProps> = ({
       return (
         <EPUBCard
           card={card}
-          streamCard={streamCard}
-          streamId={streamId}
-          brainId={brainId}
+          workspaceCard={workspaceCard}
+          workspaceId={workspaceId}
+          libraryId={libraryId}
           depth={depth}
           onDelete={onDelete}
           onMoveUp={onMoveUp}
@@ -434,7 +434,7 @@ const Card: React.FC<CardProps> = ({
           {/* Small save status indicator */}
           <div 
             className={`save-status-indicator ${card.title ? 'saved' : 'unsaved'} ${saveIndicatorPulse ? 'pulse' : ''}`}
-            title={card.title ? 'Saved to brain' : 'Unsaved - needs title to be saved'}
+            title={card.title ? 'Saved to library' : 'Unsaved - needs title to be saved'}
           >
             <div className="save-dot"></div>
           </div>
@@ -478,7 +478,7 @@ const Card: React.FC<CardProps> = ({
             {isLoadingContent ? '🔄' : '✏️'}
           </button>
           
-          {/* Remove from stream button */}
+          {/* Remove from workspace button */}
           <button
             type="button"
             className="btn btn-small"
@@ -486,14 +486,14 @@ const Card: React.FC<CardProps> = ({
               e.stopPropagation();
               // Show warning for unsaved cards since they'll be deleted permanently
               if (!card.title) {
-                if (window.confirm('This unsaved card will be permanently deleted when removed from the stream. Continue?')) {
+                if (window.confirm('This unsaved card will be permanently deleted when removed from the workspace. Continue?')) {
                   onDelete(cardId);
                 }
               } else {
                 onDelete(cardId);
               }
             }}
-            title={card.title ? "Remove card from stream (keeps in brain)" : "Remove unsaved card (will be permanently deleted)"}
+            title={card.title ? "Remove card from workspace (keeps in library)" : "Remove unsaved card (will be permanently deleted)"}
             style={{ 
               color: card.title ? '#f59e0b' : '#ef4444',
               fontWeight: 'bold',
@@ -503,18 +503,18 @@ const Card: React.FC<CardProps> = ({
             −
           </button>
           
-          {/* Delete from brain button (only for saved cards with titles) */}
+          {/* Delete from library button (only for saved cards with titles) */}
           {card.title && onDeleteFromBrain && (
             <button
               type="button"
               className="btn btn-small"
               onClick={(e) => {
                 e.stopPropagation();
-                if (window.confirm('Delete this card completely from the brain? This cannot be undone.')) {
+                if (window.confirm('Delete this card completely from the library? This cannot be undone.')) {
                   onDeleteFromBrain(cardId);
                 }
               }}
-              title="Delete card completely from brain"
+              title="Delete card completely from library"
               style={{ 
                 color: '#ef4444',
                 fontWeight: 'bold',
@@ -717,7 +717,7 @@ const Card: React.FC<CardProps> = ({
             <button
               type="button"
               className="btn btn-small"
-              onClick={() => onAddCardBelow(streamCard.position)}
+              onClick={() => onAddCardBelow(workspaceCard.position)}
               title="Add existing card below this one"
               style={{ 
                 fontSize: '12px',
@@ -733,7 +733,7 @@ const Card: React.FC<CardProps> = ({
             <button
               type="button"
               className="btn btn-small btn-secondary"
-              onClick={() => onCreateCardBelow(streamCard.position)}
+              onClick={() => onCreateCardBelow(workspaceCard.position)}
               title="Create new card below this one"
               style={{ 
                 fontSize: '12px',
@@ -765,7 +765,7 @@ const Card: React.FC<CardProps> = ({
             <button
               type="button"
               className="btn btn-small"
-              onClick={() => onUploadFileBelow(streamCard.position)}
+              onClick={() => onUploadFileBelow(workspaceCard.position)}
               title="Upload PDF or EPUB file below this card"
               style={{ 
                 fontSize: '12px',
@@ -783,7 +783,7 @@ const Card: React.FC<CardProps> = ({
             <button
               type="button"
               className="btn btn-small"
-              onClick={() => onAddFileBelow(streamCard.position)}
+              onClick={() => onAddFileBelow(workspaceCard.position)}
               title="Add existing file below this card"
               style={{ 
                 fontSize: '12px',
@@ -803,10 +803,10 @@ const Card: React.FC<CardProps> = ({
       {/* Inline Card Search Interface */}
       {showAddInterface && onAddCard && onCancelAdd && (
         <CardSearchInterface
-          brainId={brainId}
-          streamId={streamId}
-          streamCards={[streamCard]} // Pass current stream card to avoid showing it
-          onCardSelected={(card) => onAddCard(card.id, streamCard.position)}
+          libraryId={libraryId}
+          workspaceId={workspaceId}
+          workspaceCards={[workspaceCard]} // Pass current workspace card to avoid showing it
+          onCardSelected={(card) => onAddCard(card.id, workspaceCard.position)}
           onCancel={onCancelAdd}
         />
       )}
@@ -814,8 +814,8 @@ const Card: React.FC<CardProps> = ({
       {/* AI Generation Interface */}
       {showGenerateInterface && onGenerateCardBelow && (
         <GenerateInterface
-          brainId={brainId}
-          position={streamCard.position}
+          libraryId={libraryId}
+          position={workspaceCard.position}
           contextCards={aiContextCards}
           onGenerate={(prompt, model, position) => {
             onGenerateCardBelow(position, prompt, model);
@@ -828,9 +828,9 @@ const Card: React.FC<CardProps> = ({
       {/* File Upload Interface */}
       {showUploadInterface && onFileUploaded && onCancelUpload && (
         <FileUploadInterface
-          brainId={brainId}
-          streamId={streamId}
-          position={streamCard.position}
+          libraryId={libraryId}
+          workspaceId={workspaceId}
+          position={workspaceCard.position}
           onFileUploaded={onFileUploaded}
           onCancel={onCancelUpload}
         />
@@ -839,9 +839,9 @@ const Card: React.FC<CardProps> = ({
       {/* File Search Interface */}
       {showFileAddInterface && onAddFile && onCancelFileAdd && (
         <FileSearchInterface
-          brainId={brainId}
-          streamId={streamId}
-          onFileSelected={(file) => onAddFile(file, streamCard.position)}
+          libraryId={libraryId}
+          workspaceId={workspaceId}
+          onFileSelected={(file) => onAddFile(file, workspaceCard.position)}
           onCancel={onCancelFileAdd}
         />
       )}
