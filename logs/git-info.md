@@ -1,0 +1,1 @@
+Master is the name of the initial branch.

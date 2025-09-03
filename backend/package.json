@@ -1,0 +1,40 @@
+{
+  "name": "backend",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "clarity": "node cli/index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bcrypt": "^6.0.0",
+    "chalk": "^4.1.2",
+    "chokidar": "^4.0.3",
+    "commander": "^14.0.0",
+    "compression": "^1.8.1",
+    "connect-pg-simple": "^10.0.0",
+    "cors": "^2.8.5",
+    "crypto": "^1.0.1",
+    "dotenv": "^17.2.1",
+    "epub2": "^3.0.2",
+    "express": "^5.1.0",
+    "express-session": "^1.18.2",
+    "fs-extra": "^11.3.0",
+    "helmet": "^8.1.0",
+    "morgan": "^1.10.1",
+    "multer": "^2.0.2",
+    "node-fetch": "^2.6.7",
+    "pdf-parse": "^1.1.1",
+    "pg": "^8.16.3",
+    "react-pdf": "^10.0.1"
+  },
+  "devDependencies": {
+    "@types/pg": "^8.15.5",
+    "nodemon": "^3.1.10"
+  }
+}
