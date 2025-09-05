@@ -666,8 +666,8 @@ router.delete('/:id/files/:fileId', async (req, res) => {
       // Continue with database deletion even if file system deletion fails
     }
 
-    // Remove file references from all streams first
-    await query('DELETE FROM stream_files WHERE file_id = $1', [fileId]);
+    // Remove file references from all workspaces first
+    await query('DELETE FROM workspace_files WHERE file_id = $1', [fileId]);
 
     // Delete file record from database
     await query('DELETE FROM files WHERE id = $1', [fileId]);

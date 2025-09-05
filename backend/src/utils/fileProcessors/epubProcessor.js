@@ -290,9 +290,7 @@ ${fullText}`;
     } else {
       // File card mode - show metadata and description
       const description = metadata.description || '*No description available.*';
-      const preview = description.length > 500 ? 
-        description.substring(0, 500).trim() + '...' : 
-        description;
+      const preview = description; // Use full description, no character limit
         
       content = `# ${title}
 

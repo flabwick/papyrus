@@ -5,25 +5,25 @@ import api from '../services/api';
 
 interface TokenCountData {
   totalTokens: number;
-  cardTokens: { cardId: string; tokens: number; title: string }[];
+  pageTokens: { pageId: string; tokens: number; title: string }[];
   isLoading: boolean;
   selectedModel: string;
 }
 
 export const useTokenCount = (selectedModel: string = 'gpt-4o'): TokenCountData => {
-  const { aiContextCards } = useApp();
+  const { aiContextPages } = useApp();
   const [tokenData, setTokenData] = useState<TokenCountData>({
     totalTokens: 0,
-    cardTokens: [],
+    pageTokens: [],
     isLoading: false,
     selectedModel
   });
 
   useEffect(() => {
-    if (aiContextCards.length === 0) {
+    if (aiContextPages.length === 0) {
       setTokenData({
         totalTokens: 0,
-        cardTokens: [],
+        pageTokens: [],
         isLoading: false,
         selectedModel
       });
@@ -34,33 +34,33 @@ export const useTokenCount = (selectedModel: string = 'gpt-4o'): TokenCountData 
       setTokenData(prev => ({ ...prev, isLoading: true }));
 
       try {
-        // Fetch content for all context cards
-        const cardPromises = aiContextCards.map(async (cardId) => {
-          const response = await api.get(`/cards/${cardId}`);
-          const card = response.data.card;
+        // Fetch content for all context pages
+        const pagePromises = aiContextPages.map(async (pageId: string) => {
+          const response = await api.get(`/pages/${pageId}`);
+          const page = response.data.page;
           
           // Get the full content for token counting
-          const content = card.content || card.contentPreview || '';
-          const title = card.title || 'Untitled';
+          const content = page.content || page.contentPreview || '';
+          const title = page.title || 'Untitled';
           
           // Create context text as it would be sent to AI
           const contextText = `# ${title}\n\n${content}`;
           const tokens = tokenCounter.countTokens(contextText, selectedModel);
           
           return {
-            cardId,
+            pageId,
             tokens,
             title,
             content: contextText
           };
         });
 
-        const cardTokenResults = await Promise.all(cardPromises);
-        const totalTokens = cardTokenResults.reduce((sum, card) => sum + card.tokens, 0);
+        const pageTokenResults = await Promise.all(pagePromises);
+        const totalTokens = pageTokenResults.reduce((sum: number, page: any) => sum + page.tokens, 0);
 
         setTokenData({
           totalTokens,
-          cardTokens: cardTokenResults,
+          pageTokens: pageTokenResults,
           isLoading: false,
           selectedModel
         });
@@ -68,11 +68,11 @@ export const useTokenCount = (selectedModel: string = 'gpt-4o'): TokenCountData 
       } catch (error) {
         console.error('Failed to calculate token counts:', error);
         // Fallback to rough estimation
-        const estimatedTotal = aiContextCards.length * 150; // Rough estimate
+        const estimatedTotal = aiContextPages.length * 150; // Rough estimate
         setTokenData({
           totalTokens: estimatedTotal,
-          cardTokens: aiContextCards.map(cardId => ({
-            cardId,
+          pageTokens: aiContextPages.map((pageId: string) => ({
+            pageId,
             tokens: 150,
             title: 'Untitled'
           })),
@@ -86,7 +86,7 @@ export const useTokenCount = (selectedModel: string = 'gpt-4o'): TokenCountData 
     const timeoutId = setTimeout(calculateTokens, 300);
     return () => clearTimeout(timeoutId);
 
-  }, [aiContextCards, selectedModel]);
+  }, [aiContextPages, selectedModel]);
 
   return tokenData;
 };

@@ -6,10 +6,11 @@ const { ensureAdminAuthentication } = require('../utils/auth');
  */
 
 /**
- * Create a new user
+ * Create a new user (no authentication required for initial setup)
  */
 async function createUser(username, password, storageQuota = 1073741824) {
-  await ensureAdminAuthentication();
+  // Skip authentication for initial admin user creation
+  // await ensureAdminAuthentication();
   
   const user = await User.create(username, password, storageQuota);
   return user.toJSON();

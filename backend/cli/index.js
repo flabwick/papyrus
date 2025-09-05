@@ -21,8 +21,8 @@ const program = new Command();
 
 // CLI Configuration
 program
-  .name('clarity')
-  .description('Clarity Knowledge Management System CLI')
+  .name('papyrus')
+  .description('Papyrus Knowledge Management System CLI')
   .version('1.0.0');
 
 // Global options
@@ -34,7 +34,7 @@ program
 // Authentication commands
 program
   .command('login')
-  .description('Authenticate with Clarity')
+  .description('Authenticate with Papyrus')
   .argument('<username>', 'Username to login with')
   .option('-p, --password <password>', 'Password (will prompt if not provided)')
   .action(async (username, options) => {
@@ -49,7 +49,7 @@ program
 
 program
   .command('logout')
-  .description('Logout from Clarity')
+  .description('Logout from Papyrus')
   .action(async () => {
     try {
       await clearAuthToken();
@@ -91,13 +91,13 @@ const admin = program
 
 admin
   .command('create-user')
-  .description('Create a new user')
+  .description('Create a new user (no authentication required for initial setup)')
   .argument('<username>', 'Username for new user')
   .argument('<password>', 'Password for new user')
   .option('-q, --quota <bytes>', 'Storage quota in bytes', '1073741824') // 1GB default
   .action(async (username, password, options) => {
     try {
-      await ensureAuthentication();
+      // Skip authentication for create-user to allow initial admin setup
       const result = await adminCommands.createUser(username, password, parseInt(options.quota));
       
       if (program.opts().json) {

@@ -111,7 +111,7 @@ class PageFactory {
     // Generate preview content from file if available
     let contentPreview = options.contentPreview || '';
     if (options.content) {
-      contentPreview = options.content.substring(0, 500);
+      contentPreview = options.content; // Use full content, no 500 char limit
     }
 
     const page = await Page.create(libraryId, fileName, {
@@ -228,9 +228,9 @@ class PageFactory {
    */
   static async addPageToStreamSafely(streamId, pageId, position = null) {
     return await transaction(async (client) => {
-      // Check if page is already in stream
+      // Check if page is already in workspace
       const existing = await client.query(
-        'SELECT id FROM stream_pages WHERE stream_id = $1 AND page_id = $2',
+        'SELECT id FROM workspace_pages WHERE workspace_id = $1 AND page_id = $2',
         [streamId, pageId]
       );
 
@@ -241,14 +241,14 @@ class PageFactory {
       // If position is null, append to end
       if (position === null) {
         const result = await client.query(
-          'SELECT COALESCE(MAX(position), -1) + 1 as next_position FROM stream_pages WHERE stream_id = $1',
+          'SELECT COALESCE(MAX(position), -1) + 1 as next_position FROM workspace_pages WHERE workspace_id = $1',
           [streamId]
         );
         position = result.rows[0].next_position;
       } else {
         // Renumber all positions to ensure gaps and avoid conflicts
         const allPages = await client.query(
-          'SELECT id, position FROM stream_pages WHERE stream_id = $1 ORDER BY position',
+          'SELECT id, position FROM workspace_pages WHERE workspace_id = $1 ORDER BY position',
           [streamId]
         );
 
@@ -257,7 +257,7 @@ class PageFactory {
         
         // Temporarily set all positions to negative values to avoid conflicts
         await client.query(
-          'UPDATE stream_pages SET position = -position - 1000 WHERE stream_id = $1',
+          'UPDATE workspace_pages SET position = -position - 1000 WHERE workspace_id = $1',
           [streamId]
         );
 
@@ -268,7 +268,7 @@ class PageFactory {
             newPos++; // Leave space for our new page
           }
           await client.query(
-            'UPDATE stream_pages SET position = $1 WHERE stream_id = $2 AND id = $3',
+            'UPDATE workspace_pages SET position = $1 WHERE workspace_id = $2 AND id = $3',
             [newPos, streamId, page.id]
           );
           newPos++;
@@ -277,7 +277,7 @@ class PageFactory {
       
       // Insert the new page
       await client.query(`
-        INSERT INTO stream_pages (stream_id, page_id, position, is_in_ai_context, is_collapsed)
+        INSERT INTO workspace_pages (workspace_id, page_id, position, is_in_ai_context, is_collapsed)
         VALUES ($1, $2, $3, false, false)
       `, [streamId, pageId, position]);
       
@@ -297,7 +297,7 @@ class PageFactory {
       // Get next position if not specified
       if (position === null) {
         const result = await client.query(
-          'SELECT COALESCE(MAX(position), -1) + 1 as next_position FROM stream_pages WHERE stream_id = $1',
+          'SELECT COALESCE(MAX(position), -1) + 1 as next_position FROM workspace_pages WHERE workspace_id = $1',
           [streamId]
         );
         position = result.rows[0].next_position;
@@ -305,7 +305,7 @@ class PageFactory {
 
       // Check if page is already in stream (with lock to prevent race conditions)
       const existing = await client.query(
-        'SELECT id FROM stream_pages WHERE stream_id = $1 AND page_id = $2 FOR UPDATE',
+        'SELECT id FROM workspace_pages WHERE workspace_id = $1 AND page_id = $2 FOR UPDATE',
         [streamId, pageId]
       );
 
@@ -315,7 +315,7 @@ class PageFactory {
 
       // Lock the entire stream to prevent concurrent modifications
       await client.query(
-        'SELECT stream_id FROM stream_pages WHERE stream_id = $1 LIMIT 1 FOR UPDATE',
+        'SELECT workspace_id FROM workspace_pages WHERE workspace_id = $1 LIMIT 1 FOR UPDATE',
         [streamId]
       );
       
@@ -323,22 +323,22 @@ class PageFactory {
       if (position !== null) {
         // Check if the requested position exists
         const existingAtPosition = await client.query(
-          'SELECT page_id FROM stream_pages WHERE stream_id = $1 AND position = $2',
+          'SELECT page_id FROM workspace_pages WHERE workspace_id = $1 AND position = $2',
           [streamId, position]
         );
         
         if (existingAtPosition.rows.length > 0) {
           // Position is occupied, shift everything from that position up
           await client.query(`
-            UPDATE stream_pages 
+            UPDATE workspace_pages 
             SET position = position + 1 
-            WHERE stream_id = $1 AND position >= $2
+            WHERE workspace_id = $1 AND position >= $2
           `, [streamId, position]);
         }
       } else {
         // If position is null, append to end
         const maxPositionResult = await client.query(
-          'SELECT COALESCE(MAX(position), -1) + 1 as next_position FROM stream_pages WHERE stream_id = $1',
+          'SELECT COALESCE(MAX(position), -1) + 1 as next_position FROM workspace_pages WHERE workspace_id = $1',
           [streamId]
         );
         position = maxPositionResult.rows[0].next_position;
@@ -346,7 +346,7 @@ class PageFactory {
       
       // Insert the new page
       await client.query(`
-        INSERT INTO stream_pages (stream_id, page_id, position, is_in_ai_context, is_collapsed)
+        INSERT INTO workspace_pages (workspace_id, page_id, position, is_in_ai_context, is_collapsed)
         VALUES ($1, $2, $3, false, false)
       `, [streamId, pageId, position]);
       
@@ -361,12 +361,12 @@ class PageFactory {
    */
   static async getBrainIdFromStream(streamId) {
     const result = await query(
-      'SELECT brain_id FROM streams WHERE id = $1',
+      'SELECT library_id FROM workspaces WHERE id = $1',
       [streamId]
     );
 
     if (result.rows.length === 0) {
-      throw new Error('Stream not found');
+      throw new Error('Workspace not found');
     }
 
     return result.rows[0].library_id;

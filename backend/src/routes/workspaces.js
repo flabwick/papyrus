@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Workspace = require('../models/Workspace');
 const WorkspacePage = require('../models/WorkspacePage');
-const Brain = require('../models/Brain');
+const Library = require('../models/Library');
 const Page = require('../models/Page');
 const WorkspaceManager = require('../services/workspaceManager');
 const { requireAuth } = require('../middleware/auth');
@@ -31,15 +31,15 @@ const validateUUID = (id) => {
   return uuidRegex.test(id);
 };
 
-const validateBrainOwnership = async (brainId, userId) => {
-  const brain = await Brain.findById(brainId);
-  if (!brain) {
-    throw new Error('Brain not found');
+const validateLibraryOwnership = async (libraryId, userId) => {
+  const library = await Library.findById(libraryId);
+  if (!library) {
+    throw new Error('Library not found');
   }
-  if (brain.userId !== userId) {
-    throw new Error('Access denied to brain');
+  if (library.userId !== userId) {
+    throw new Error('Access denied to library');
   }
-  return brain;
+  return library;
 };
 
 const validateWorkspaceOwnership = async (workspaceId, userId) => {
@@ -48,33 +48,33 @@ const validateWorkspaceOwnership = async (workspaceId, userId) => {
     throw new Error('Workspace not found');
   }
   
-  const brain = await Brain.findById(workspace.brainId);
-  if (!brain || brain.userId !== userId) {
+  const library = await Library.findById(workspace.libraryId);
+  if (!library || library.userId !== userId) {
     throw new Error('Access denied to workspace');
   }
   
-  return { workspace, brain };
+  return { workspace, library };
 };
 
 /**
  * GET /api/workspaces
- * List all workspaces for user's brains
+ * List all workspaces for user's libraries
  */
 router.get('/', async (req, res) => {
   try {
-    const { brainId } = req.query;
+    const { libraryId } = req.query;
     
-    if (brainId) {
-      // Get workspaces for specific brain
-      if (!validateUUID(brainId)) {
+    if (libraryId) {
+      // Get workspaces for specific library
+      if (!validateUUID(libraryId)) {
         return res.status(400).json({
-          error: 'Invalid brain ID',
-          message: 'Brain ID must be a valid UUID'
+          error: 'Invalid library ID',
+          message: 'Library ID must be a valid UUID'
         });
       }
       
-      await validateBrainOwnership(brainId, req.session.userId);
-      const workspaces = await Workspace.findByBrainId(brainId);
+      await validateLibraryOwnership(libraryId, req.session.userId);
+      const workspaces = await Workspace.findByLibraryId(libraryId);
       
       const workspacesWithMetadata = await Promise.all(
         workspaces.map(async (workspace) => await workspace.toJSON())
@@ -83,20 +83,20 @@ router.get('/', async (req, res) => {
       return res.json({
         workspaces: workspacesWithMetadata,
         count: workspacesWithMetadata.length,
-        brainId
+        libraryId
       });
     }
     
-    // Get workspaces for all user's brains
-    const userBrains = await Brain.findByUserId(req.session.userId);
+    // Get workspaces for all user's libraries
+    const userLibraries = await Library.findByUserId(req.session.userId);
     const allWorkspaces = [];
     
-    for (const brain of userBrains) {
-      const workspaces = await Workspace.findByBrainId(brain.id);
+    for (const library of userLibraries) {
+      const workspaces = await Workspace.findByLibraryId(library.id);
       const workspacesWithMetadata = await Promise.all(
         workspaces.map(async (workspace) => ({
           ...(await workspace.toJSON()),
-          brainName: brain.name
+          libraryName: library.name
         }))
       );
       allWorkspaces.push(...workspacesWithMetadata);
@@ -131,7 +131,7 @@ router.get('/', async (req, res) => {
  */
 router.post('/', async (req, res) => {
   try {
-    const { name, brainId } = req.body;
+    const { name, libraryId } = req.body;
     
     // Validate input
     const validation = validateWorkspaceInput(name);
@@ -143,18 +143,18 @@ router.post('/', async (req, res) => {
       });
     }
     
-    if (!brainId || !validateUUID(brainId)) {
+    if (!libraryId || !validateUUID(libraryId)) {
       return res.status(400).json({
-        error: 'Invalid brain ID',
-        message: 'Valid brain ID is required'
+        error: 'Invalid library ID',
+        message: 'Valid library ID is required'
       });
     }
     
-    // Verify brain ownership
-    await validateBrainOwnership(brainId, req.session.userId);
+    // Verify library ownership
+    await validateLibraryOwnership(libraryId, req.session.userId);
     
     // Create workspace
-    const workspace = await Workspace.create(brainId, name.trim(), false);
+    const workspace = await Workspace.create(libraryId, name.trim(), false);
     const workspaceData = await workspace.toJSON();
     
     res.status(201).json({
@@ -678,31 +678,31 @@ router.post('/:id/duplicate', async (req, res) => {
  */
 router.get('/search/pages', async (req, res) => {
   try {
-    const { q: query, brainId, includeOtherBrains = 'true' } = req.query;
+    const { q: query, libraryId, includeOtherLibraries = 'true' } = req.query;
     
     if (!query || query.trim().length === 0) {
       return res.json({
-        currentBrain: [],
-        otherBrains: [],
+        currentLibrary: [],
+        otherLibraries: [],
         totalResults: 0
       });
     }
     
-    if (!brainId || !validateUUID(brainId)) {
+    if (!libraryId || !validateUUID(libraryId)) {
       return res.status(400).json({
-        error: 'Invalid brain ID',
-        message: 'Valid brain ID is required for search'
+        error: 'Invalid library ID',
+        message: 'Valid library ID is required for search'
       });
     }
     
-    // Verify brain ownership
-    await validateBrainOwnership(brainId, req.session.userId);
+    // Verify library ownership
+    await validateLibraryOwnership(libraryId, req.session.userId);
     
     // Search pages
     const results = await WorkspaceManager.searchPagesForWorkspace(
-      brainId, 
+      libraryId, 
       query.trim(), 
-      includeOtherBrains === 'true',
+      includeOtherLibraries === 'true',
       req.session.userId
     );
     
@@ -930,23 +930,23 @@ router.put('/:id/files/:fileId', async (req, res) => {
  */
 router.post('/open-file', async (req, res) => {
   try {
-    const { fileId, brainId, workspaceTitle } = req.body;
+    const { fileId, libraryId, workspaceTitle } = req.body;
     
-    if (!validateUUID(fileId) || !validateUUID(brainId)) {
+    if (!validateUUID(fileId) || !validateUUID(libraryId)) {
       return res.status(400).json({
         error: 'Invalid ID',
-        message: 'File ID and brain ID must be valid UUIDs'
+        message: 'File ID and library ID must be valid UUIDs'
       });
     }
     
     // Verify file exists and user has access
     const { query } = require('../models/database');
     const fileResult = await query(`
-      SELECT f.id, f.file_name, f.brain_id, b.user_id
+      SELECT f.id, f.file_name, f.library_id, l.user_id
       FROM files f
-      JOIN brains b ON f.brain_id = b.id
-      WHERE f.id = $1 AND f.brain_id = $2
-    `, [fileId, brainId]);
+      JOIN libraries l ON f.library_id = l.id
+      WHERE f.id = $1 AND f.library_id = $2
+    `, [fileId, libraryId]);
 
     if (fileResult.rows.length === 0) {
       return res.status(404).json({
@@ -967,7 +967,7 @@ router.post('/open-file', async (req, res) => {
     const Workspace = require('../models/Workspace');
     const title = workspaceTitle || `${file.file_name}`;
     const workspace = await Workspace.create({
-      brainId,
+      libraryId,
       title,
       userId: req.session.userId
     });
@@ -981,7 +981,7 @@ router.post('/open-file', async (req, res) => {
       workspace: {
         id: workspace.id,
         title: workspace.title,
-        brainId: workspace.brainId,
+        libraryId: workspace.libraryId,
         createdAt: workspace.createdAt
       },
       fileId,
@@ -994,6 +994,59 @@ router.post('/open-file', async (req, res) => {
     res.status(500).json({
       error: 'Failed to open file in workspace',
       message: 'An error occurred while creating the workspace'
+    });
+  }
+});
+
+/**
+ * GET /api/workspaces/:id/cards
+ * Get all pages in a workspace (for compatibility with frontend expecting 'cards')
+ */
+router.get('/:id/cards', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!validateUUID(id)) {
+      return res.status(400).json({
+        error: 'Invalid workspace ID',
+        message: 'Workspace ID must be a valid UUID'
+      });
+    }
+    
+    // Verify ownership and get workspace
+    const { workspace } = await validateWorkspaceOwnership(id, req.session.userId);
+    
+    // Get both pages and files for this workspace
+    const pages = await workspace.getPages();
+    const WorkspaceFile = require('../models/WorkspaceFile');
+    const files = await WorkspaceFile.getWorkspaceFiles(id);
+    
+    // Combine pages and files, marking their types
+    const allItems = [
+      ...pages.map(page => ({ ...page, itemType: 'card' })),
+      ...files.map(file => ({ ...file, itemType: 'file' }))
+    ];
+    
+    // Sort by position
+    allItems.sort((a, b) => (a.position || 0) - (b.position || 0));
+    
+    res.json({
+      success: true,
+      cards: allItems, // Return as 'cards' for frontend compatibility
+      count: allItems.length
+    });
+
+  } catch (error) {
+    console.error('❌ Get workspace cards error:', error);
+    if (error.message.includes('not found') || error.message.includes('Access denied')) {
+      return res.status(error.message.includes('Access denied') ? 403 : 404).json({
+        error: error.message.includes('Access denied') ? 'Access denied' : 'Not found',
+        message: error.message
+      });
+    }
+    res.status(500).json({
+      error: 'Failed to retrieve workspace cards',
+      message: 'An error occurred while fetching the workspace cards'
     });
   }
 });

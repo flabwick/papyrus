@@ -67,11 +67,11 @@ const FileUploadInterface: React.FC<FileUploadInterfaceProps> = ({
       const formData = new FormData();
       formData.append('file', file);
       formData.append('libraryId', libraryId);
-      formData.append('streamId', streamId);
+      formData.append('workspaceId', streamId);
       formData.append('position', position.toString());
 
       // Upload file with progress tracking
-      const response = await api.post('/cards/upload-file', formData, {
+      const response = await api.post('/pages/upload-file', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -92,7 +92,10 @@ const FileUploadInterface: React.FC<FileUploadInterfaceProps> = ({
 
       // File uploaded successfully, now wait for processing
       const { cardId, fileName, wasRenamed, finalTitle, originalTitle } = response.data.data;
-      const message = response.data.message;
+      // Ensure message is always a string
+      const message = typeof response.data.message === 'string' 
+        ? response.data.message 
+        : response.data.message?.message || 'Upload complete';
       
       setUploadingFiles(prev => 
         prev.map(f => 
@@ -101,7 +104,7 @@ const FileUploadInterface: React.FC<FileUploadInterfaceProps> = ({
                 ...f, 
                 status: 'complete', 
                 cardId,
-                message: wasRenamed ? `Renamed to "${finalTitle}"` : 'Upload complete'
+                message: wasRenamed ? `Renamed to "${finalTitle}"` : message
               }
             : f
         )
@@ -126,7 +129,17 @@ const FileUploadInterface: React.FC<FileUploadInterfaceProps> = ({
 
     } catch (error: any) {
       console.error('Upload failed:', error);
-      const errorMessage = error.response?.data?.error || error.message || 'Upload failed';
+      // Ensure error message is always a string
+      let errorMessage = 'Upload failed';
+      if (error.response?.data?.error) {
+        if (typeof error.response.data.error === 'string') {
+          errorMessage = error.response.data.error;
+        } else if (error.response.data.error.message) {
+          errorMessage = error.response.data.error.message;
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
       
       setUploadingFiles(prev => 
         prev.map(f => 

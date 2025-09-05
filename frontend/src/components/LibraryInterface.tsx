@@ -49,9 +49,9 @@ const LibraryInterface: React.FC<LibraryInterfaceProps> = ({
     try {
       setIsLoading(true);
       const response = await api.get('/libraries');
-      setLibrarys(response.data.librarys || []);
+      setLibrarys(response.data.libraries || []);
     } catch (err: any) {
-      const errorMessage = err.response?.data?.message || 'Failed to load librarys';
+      const errorMessage = err.response?.data?.message || 'Failed to load libraries';
       setError(errorMessage);
     } finally {
       setIsLoading(false);
@@ -141,7 +141,7 @@ const LibraryInterface: React.FC<LibraryInterfaceProps> = ({
     <div className="library-interface">
       <div className="library-interface-header">
         <h1>
-          {view === 'library-list' ? 'Librarys' : (selectedLibrary as any)?.name || selectedLibrary?.title}
+          {view === 'library-list' ? 'Libraries' : (selectedLibrary as any)?.name || selectedLibrary?.title}
         </h1>
         <button
           type="button"

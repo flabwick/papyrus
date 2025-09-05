@@ -37,20 +37,20 @@ const server = app.listen(PORT, async () => {
   console.log('  GET  /api/libraries/:id/cards - Get library cards');
   console.log('  DELETE /api/libraries/:id  - Delete library');
   console.log('  POST /api/libraries/:id/sync - Sync library files');
-  console.log('  GET  /api/cards          - List cards');
-  console.log('  POST /api/cards          - Create card');
-  console.log('  GET  /api/cards/:id      - Get card');
-  console.log('  PUT  /api/cards/:id      - Update card');
-  console.log('  DELETE /api/cards/:id    - Delete card');
-  console.log('  GET  /api/streams        - List user streams');
-  console.log('  POST /api/streams        - Create new stream');
-  console.log('  GET  /api/streams/:id    - Get specific stream');
-  console.log('  PUT  /api/streams/:id    - Update stream');
-  console.log('  DELETE /api/streams/:id  - Delete stream');
-  console.log('  GET  /api/streams/:id/cards - Get stream cards');
-  console.log('  POST /api/streams/:id/cards - Add card to stream');
-  console.log('  PUT  /api/streams/:id/cards/:cardId - Update card in stream');
-  console.log('  DELETE /api/streams/:id/cards/:cardId - Remove card from stream');
+  console.log('  GET  /api/pages          - List pages');
+  console.log('  POST /api/pages          - Create page');
+  console.log('  GET  /api/pages/:id      - Get page');
+  console.log('  PUT  /api/pages/:id      - Update page');
+  console.log('  DELETE /api/pages/:id    - Delete page');
+  console.log('  GET  /api/workspaces     - List user workspaces');
+  console.log('  POST /api/workspaces     - Create new workspace');
+  console.log('  GET  /api/workspaces/:id - Get specific workspace');
+  console.log('  PUT  /api/workspaces/:id - Update workspace');
+  console.log('  DELETE /api/workspaces/:id - Delete workspace');
+  console.log('  GET  /api/workspaces/:id/cards - Get workspace pages');
+  console.log('  POST /api/workspaces/:id/cards - Add page to workspace');
+  console.log('  PUT  /api/workspaces/:id/cards/:cardId - Update page in workspace');
+  console.log('  DELETE /api/workspaces/:id/cards/:cardId - Remove page from workspace');
 });
 
 // Graceful shutdown handler

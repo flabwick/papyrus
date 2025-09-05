@@ -24,7 +24,7 @@ class Page {
     // Page Type System properties (legacy - now simplified to titled/untitled)
     this.pageType = data.page_type || 'saved';
     this.isLibraryWide = data.is_library_wide !== undefined ? data.is_library_wide : true;
-    this.streamSpecificId = data.stream_specific_id || null;
+    this.workspaceSpecificId = data.workspace_specific_id || null;
     this.fileId = data.file_id || null;
   }
 
@@ -108,20 +108,20 @@ class Page {
         }
       }
 
-      // Validate stream exists for untitled pages
+      // Validate workspace exists for untitled pages
       if (!title) {
-        const streamResult = await client.query(
-          'SELECT id FROM streams WHERE id = $1 AND library_id = $2',
+        const workspaceResult = await client.query(
+          'SELECT id FROM workspaces WHERE id = $1 AND library_id = $2',
           [streamId, libraryId]
         );
         
-        if (streamResult.rows.length === 0) {
-          throw new Error('Stream not found or does not belong to this library');
+        if (workspaceResult.rows.length === 0) {
+          throw new Error('Workspace not found or does not belong to this library');
         }
       }
 
-      // Generate content preview (first 500 characters)
-      const contentPreview = content.substring(0, 500);
+      // Generate content preview (use full content, no 500 char limit)
+      const contentPreview = content;
 
       // Calculate file hash if content provided
       let calculatedHash = fileHash;
@@ -131,20 +131,20 @@ class Page {
 
       // Set page type specific properties
       const isLibraryWide = !!title; // Titled pages are library-wide
-      const streamSpecificId = !title ? streamId : null; // Untitled pages are stream-specific
+      const workspaceSpecificId = !title ? streamId : null; // Untitled pages are workspace-specific
       const titleToStore = title ? title.trim() : null;
 
       // Insert page into database
       const result = await client.query(`
         INSERT INTO pages (
           library_id, title, file_path, file_hash, content_preview, file_size, is_active, 
-          last_modified, page_type, is_library_wide, stream_specific_id, file_id
+          last_modified, page_type, is_library_wide, workspace_specific_id, file_id
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP, $8, $9, $10, $11)
         RETURNING *
       `, [
         libraryId, titleToStore, filePath, calculatedHash, contentPreview, fileSize, true,
-        pageType, isLibraryWide, streamSpecificId, fileId
+        pageType, isLibraryWide, workspaceSpecificId, fileId
       ]);
 
       const page = new Page(result.rows[0]);
@@ -321,7 +321,7 @@ class Page {
       throw new Error('Content must be a string');
     }
 
-    const contentPreview = content.substring(0, 500);
+    const contentPreview = content; // Use full content, no 500 char limit
     const fileHash = crypto.createHash('sha256').update(content).digest('hex');
     const fileSize = Buffer.byteLength(content, 'utf8');
 
@@ -383,7 +383,7 @@ class Page {
    * @returns {Promise<void>}
    */
   async update(updates) {
-    const allowedFields = ['title', 'file_path', 'file_hash', 'content_preview', 'file_size', 'page_type', 'is_library_wide', 'stream_specific_id', 'file_id'];
+    const allowedFields = ['title', 'file_path', 'file_hash', 'content_preview', 'file_size', 'page_type', 'is_library_wide', 'workspace_specific_id', 'file_id'];
     const validUpdates = {};
     
     for (const [key, value] of Object.entries(updates)) {
@@ -466,7 +466,7 @@ class Page {
       await client.query(`
         UPDATE pages 
         SET title = $1, page_type = 'saved', is_library_wide = true, 
-            stream_specific_id = NULL, updated_at = CURRENT_TIMESTAMP
+            workspace_specific_id = NULL, updated_at = CURRENT_TIMESTAMP
         WHERE id = $2
       `, [title.trim(), this.id]);
 
@@ -854,7 +854,7 @@ class Page {
     
     const result = await query(`
       SELECT * FROM pages 
-      WHERE stream_specific_id = $1 AND (title IS NULL OR title = '') ${whereClause}
+      WHERE workspace_specific_id = $1 AND (title IS NULL OR title = '') ${whereClause}
       ORDER BY ${orderBy}
     `, [streamId]);
 

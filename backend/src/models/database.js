@@ -105,12 +105,12 @@ async function checkTables() {
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
-      AND table_name IN ('users', 'brains', 'cards', 'card_links', 'streams', 'cli_sessions', 'web_sessions')
+      AND table_name IN ('users', 'libraries', 'pages', 'page_links', 'workspaces', 'workspace_pages', 'workspace_files', 'files', 'cli_sessions', 'web_sessions')
       ORDER BY table_name
     `);
     
     const existingTables = result.rows.map(row => row.table_name);
-    const requiredTables = ['users', 'brains', 'cards', 'card_links', 'streams', 'cli_sessions', 'web_sessions'];
+    const requiredTables = ['users', 'libraries', 'pages', 'page_links', 'workspaces', 'workspace_pages', 'workspace_files', 'files', 'cli_sessions', 'web_sessions'];
     
     const status = {};
     requiredTables.forEach(table => {

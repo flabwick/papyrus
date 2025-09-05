@@ -65,14 +65,14 @@ class Library {
 
       const library = new Library(result.rows[0]);
 
-      // Create welcome stream for new library
+      // Create welcome workspace for new library
       try {
-        const StreamManager = require('../services/streamManager');
-        await StreamManager.createWelcomeStream(library.id);
-        console.log(`✅ Created welcome stream for library: ${libraryName}`);
+        const WorkspaceManager = require('../services/workspaceManager');
+        await WorkspaceManager.createWelcomeWorkspace(library.id);
+        console.log(`✅ Created welcome workspace for library: ${libraryName}`);
       } catch (error) {
-        console.error(`⚠️  Failed to create welcome stream for library ${libraryName}:`, error.message);
-        // Don't fail library creation if welcome stream fails
+        console.error(`⚠️  Failed to create welcome workspace for library ${libraryName}:`, error.message);
+        // Don't fail library creation if welcome workspace fails
       }
 
       console.log(`✅ Created library: ${libraryName} for user: ${user.username}`);
@@ -152,15 +152,15 @@ class Library {
   }
 
   /**
-   * Get all titled cards in this library (only cards with titles appear in cards list)
-   * @param {boolean} activeOnly - Only return active cards (default: true)
-   * @returns {Promise<Array>} - Array of titled card objects
+   * Get all titled pages in this library (only pages with titles appear in pages list)
+   * @param {boolean} activeOnly - Only return active pages (default: true)
+   * @returns {Promise<Array>} - Array of titled page objects
    */
-  async getCards(activeOnly = true) {
+  async getPages(activeOnly = true) {
     const whereClause = activeOnly ? 'AND is_active = true' : '';
     
     const result = await query(`
-      SELECT * FROM cards 
+      SELECT * FROM pages 
       WHERE library_id = $1 ${whereClause}
       AND title IS NOT NULL AND title != ''
       ORDER BY title
@@ -170,18 +170,18 @@ class Library {
   }
 
   /**
-   * Get card count for this library
-   * @param {boolean} activeOnly - Only count active cards (default: true)
-   * @returns {Promise<number>} - Card count
+   * Get page count for this library
+   * @param {boolean} activeOnly - Only count active pages (default: true)
+   * @returns {Promise<number>} - Page count
    */
-  async getCardCount(activeOnly = true) {
+  async getPageCount(activeOnly = true) {
     const whereClause = activeOnly ? 'AND is_active = true' : '';
     
     const result = await query(`
       SELECT COUNT(*) as count 
-      FROM cards 
+      FROM pages 
       WHERE library_id = $1 ${whereClause}
-      AND (card_type IS NULL OR card_type != 'unsaved')
+      AND (page_type IS NULL OR page_type != 'unsaved')
     `, [this.id]);
 
     return parseInt(result.rows[0].count);
@@ -240,13 +240,13 @@ class Library {
    * @returns {Object} - Library data with computed fields
    */
   async toJSON() {
-    const cardCount = await this.getCardCount();
+    const pageCount = await this.getPageCount();
     
     return {
       id: this.id,
       name: this.name,
       folderPath: this.folderPath,
-      cardCount,
+      pageCount,
       storageUsed: this.storageUsed,
       lastScannedAt: this.lastScannedAt,
       createdAt: this.createdAt,
@@ -308,7 +308,7 @@ class Library {
       // Recalculate storage usage
       await this.calculateStorageUsage();
       
-      return await this.getCardCount();
+      return await this.getPageCount();
     } catch (error) {
       console.error(`❌ Force sync failed for library ${this.name}:`, error.message);
       throw error;

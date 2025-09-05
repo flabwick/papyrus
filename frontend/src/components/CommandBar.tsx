@@ -9,7 +9,7 @@ interface CommandBarProps {
 }
 
 const CommandBar: React.FC<CommandBarProps> = ({ workspaceId }) => {
-  const { aiContextCards, clearAIContext, currentWorkspace } = useApp();
+  const { aiContextPages, clearAIContext, currentWorkspace } = useApp();
   const { user } = useAuth();
   const [selectedModel] = useState('gpt-4o'); // Default model for token counting
   
@@ -49,12 +49,12 @@ const CommandBar: React.FC<CommandBarProps> = ({ workspaceId }) => {
             style={{ 
               fontSize: '12px', 
               fontWeight: 600,
-              color: exceedsLimit ? '#ef4444' : aiContextCards.length > 0 ? 'var(--ai-context-border)' : 'var(--text-primary)'
+              color: exceedsLimit ? '#ef4444' : aiContextPages.length > 0 ? 'var(--ai-context-border)' : 'var(--text-primary)'
             }}
           >
             {tokenLoading ? '...' : (
               <>
-                {aiContextCards.length} cards ({tokenCounter.formatTokenCount(totalTokens)} tokens)
+                {aiContextPages.length} pages ({tokenCounter.formatTokenCount(totalTokens)} tokens)
                 {totalTokens > 0 && (
                   <span style={{ 
                     fontSize: '10px', 
@@ -67,7 +67,7 @@ const CommandBar: React.FC<CommandBarProps> = ({ workspaceId }) => {
               </>
             )}
           </span>
-          {aiContextCards.length > 0 && (
+          {aiContextPages.length > 0 && (
             <>
               <button
                 onClick={clearAIContext}

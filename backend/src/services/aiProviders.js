@@ -29,9 +29,8 @@ class AIProviderService {
     
     if (this.providers.anthropic) {
       models.push(
-        { id: 'claude-3-opus-20240229', name: 'Claude 3 Opus', provider: 'anthropic', contextLimit: 200000 },
-        { id: 'claude-3-sonnet-20240229', name: 'Claude 3 Sonnet', provider: 'anthropic', contextLimit: 200000 },
-        { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku', provider: 'anthropic', contextLimit: 200000 }
+        { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet', provider: 'anthropic', contextLimit: 200000 },
+        { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', provider: 'anthropic', contextLimit: 200000 }
       );
     }
     
@@ -114,7 +113,11 @@ class OpenAIProvider {
       });
 
       if (!response.ok) {
-        throw new Error(`OpenAI API error: ${response.statusText}`);
+        const errorText = await response.text();
+        if (response.status === 429) {
+          throw new Error(`OpenAI API rate limit exceeded. Please wait a moment and try again.`);
+        }
+        throw new Error(`OpenAI API error: ${response.statusText} - ${errorText}`);
       }
 
       // Use Node.js body stream instead of getReader()

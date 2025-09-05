@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import api from '../services/api';
 
-// Configure PDF.js worker
+// Configure PDF.js worker - use local worker file to avoid CORS issues
 pdfjs.GlobalWorkerOptions.workerSrc = `${window.location.origin}/pdf.worker.min.js`;
 
 interface FileViewerProps {
@@ -83,7 +83,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
     console.log('Starting PDF load for file:', file.id);
     
     try {
-      const response = await api.get(`/cards/files/${file.id}/download`, {
+      const response = await api.get(`/pages/files/${file.id}/download`, {
         responseType: 'arraybuffer'
       });
       
@@ -104,12 +104,10 @@ const FileViewer: React.FC<FileViewerProps> = ({
 
   // Debug FileViewer render
   console.log('FileViewer render - file type:', file?.file_type || file?.fileType);
-  console.log('FileViewer render - isExpanded:', isExpanded);
-  console.log('FileViewer render - pdfUrl:', pdfUrl);
 
   const handleDownload = async () => {
     try {
-      const response = await api.get(`/cards/files/${file.id}/download`, {
+      const response = await api.get(`/pages/files/${file.id}/download`, {
         responseType: 'blob'
       });
       
@@ -260,7 +258,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
               type="button"
               className="btn btn-small"
               onClick={() => onAddCardBelow(file.position)}
-              title="Add existing card below this file"
+              title="Add existing page below this file"
               style={{ 
                 fontSize: '12px',
                 display: 'flex',
@@ -268,7 +266,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
                 gap: '4px'
               }}
             >
-              📎 Add Card
+              📎 Add Page
             </button>
           )}
           {onCreateCardBelow && (
@@ -276,7 +274,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
               type="button"
               className="btn btn-small btn-secondary"
               onClick={() => onCreateCardBelow(file.position)}
-              title="Create new card below this file"
+              title="Create new page below this file"
               style={{ 
                 fontSize: '12px',
                 display: 'flex',
@@ -284,7 +282,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
                 gap: '4px'
               }}
             >
-              ✨ Create Card
+              ✨ Create Page
             </button>
           )}
           {onGenerateCardBelow && (
@@ -350,7 +348,7 @@ const EPUBViewer: React.FC<{ file: any }> = ({ file }) => {
   useEffect(() => {
     const loadCoverImage = async (fileId: string, coverPath: string) => {
       try {
-        const response = await api.get(`/librarys/${file.libraryId}/files/${fileId}/cover`, {
+        const response = await api.get(`/libraries/${file.libraryId}/files/${fileId}/cover`, {
           responseType: 'blob'
         });
         const blob = new Blob([response.data]);

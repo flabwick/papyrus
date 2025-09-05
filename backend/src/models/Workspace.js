@@ -1,11 +1,11 @@
 const { query, transaction } = require('./database');
 
 /**
- * Stream Model
- * Handles stream-related database operations and business logic
+ * Workspace Model
+ * Handles workspace-related database operations and business logic
  */
 
-class Stream {
+class Workspace {
   constructor(data) {
     this.id = data.id;
     this.libraryId = data.library_id;
@@ -16,19 +16,19 @@ class Stream {
   }
 
   /**
-   * Create a new stream
-   * @param {string} libraryId - Library ID that owns the stream
-   * @param {string} name - Stream name (must be unique within library)
-   * @param {boolean} isWelcomeStream - Whether this is a welcome stream with tutorial content
-   * @returns {Promise<Stream>} - Created stream instance
+   * Create a new workspace
+   * @param {string} libraryId - Library ID that owns the workspace
+   * @param {string} name - Workspace name (must be unique within library)
+   * @param {boolean} isWelcomeWorkspace - Whether this is a welcome workspace with tutorial content
+   * @returns {Promise<Workspace>} - Created workspace instance
    */
-  static async create(libraryId, name, isWelcomeStream = false) {
+  static async create(libraryId, name, isWelcomeWorkspace = false) {
     if (!name || name.trim().length === 0) {
-      throw new Error('Stream name is required');
+      throw new Error('Workspace name is required');
     }
 
     if (name.length > 100) {
-      throw new Error('Stream name cannot exceed 100 characters');
+      throw new Error('Workspace name cannot exceed 100 characters');
     }
 
     return await transaction(async (client) => {
@@ -42,106 +42,106 @@ class Stream {
         throw new Error('Library not found');
       }
 
-      // Check if stream name already exists in this library
-      const existingStream = await client.query(
-        'SELECT id FROM streams WHERE library_id = $1 AND name = $2',
+      // Check if workspace name already exists in this library
+      const existingWorkspace = await client.query(
+        'SELECT id FROM workspaces WHERE library_id = $1 AND name = $2',
         [libraryId, name.trim()]
       );
 
-      if (existingStream.rows.length > 0) {
-        throw new Error(`Stream '${name}' already exists in this library`);
+      if (existingWorkspace.rows.length > 0) {
+        throw new Error(`Workspace '${name}' already exists in this library`);
       }
 
-      // Insert stream into database
+      // Insert workspace into database
       const result = await client.query(`
-        INSERT INTO streams (library_id, name, is_favorited)
+        INSERT INTO workspaces (library_id, name, is_favorited)
         VALUES ($1, $2, $3)
         RETURNING *
-      `, [libraryId, name.trim(), isWelcomeStream]);
+      `, [libraryId, name.trim(), isWelcomeWorkspace]);
 
-      const stream = new Stream(result.rows[0]);
+      const workspace = new Workspace(result.rows[0]);
 
-      // If this is a welcome stream, create tutorial content
-      if (isWelcomeStream) {
+      // If this is a welcome workspace, create tutorial content
+      if (isWelcomeWorkspace) {
         const welcomeContent = require('../services/welcomeContent');
-        await welcomeContent.createWelcomeCards(libraryId, stream.id);
+        await welcomeContent.createWelcomeCards(libraryId, workspace.id);
       }
 
-      console.log(`✅ Created stream: ${name} in library ${libraryId}`);
-      return stream;
+      console.log(`✅ Created workspace: ${name} in library ${libraryId}`);
+      return workspace;
     });
   }
 
   /**
-   * Find stream by ID
-   * @param {string} streamId - Stream ID to find
-   * @returns {Promise<Stream|null>} - Stream instance or null
+   * Find workspace by ID
+   * @param {string} workspaceId - Workspace ID to find
+   * @returns {Promise<Workspace|null>} - Workspace instance or null
    */
-  static async findById(streamId) {
+  static async findById(workspaceId) {
     const result = await query(
-      'SELECT * FROM streams WHERE id = $1',
-      [streamId]
+      'SELECT * FROM workspaces WHERE id = $1',
+      [workspaceId]
     );
 
-    return result.rows.length > 0 ? new Stream(result.rows[0]) : null;
+    return result.rows.length > 0 ? new Workspace(result.rows[0]) : null;
   }
 
   /**
-   * Find stream by library and name
+   * Find workspace by library and name
    * @param {string} libraryId - Library ID
-   * @param {string} name - Stream name
-   * @returns {Promise<Stream|null>} - Stream instance or null
+   * @param {string} name - Workspace name
+   * @returns {Promise<Workspace|null>} - Workspace instance or null
    */
   static async findByLibraryAndName(libraryId, name) {
     const result = await query(
-      'SELECT * FROM streams WHERE library_id = $1 AND name = $2',
+      'SELECT * FROM workspaces WHERE library_id = $1 AND name = $2',
       [libraryId, name]
     );
 
-    return result.rows.length > 0 ? new Stream(result.rows[0]) : null;
+    return result.rows.length > 0 ? new Workspace(result.rows[0]) : null;
   }
 
   /**
-   * Get all streams for a library with automatic cleanup
+   * Get all workspaces for a library with automatic cleanup
    * @param {string} libraryId - Library ID
    * @param {Object} options - Query options
-   * @returns {Promise<Array<Stream>>} - Array of stream instances
+   * @returns {Promise<Array<Workspace>>} - Array of workspace instances
    */
   static async findByLibraryId(libraryId, options = {}) {
-    // First, cleanup expired unfavorited streams
-    await Stream.cleanupExpired();
+    // First, cleanup expired unfavorited workspaces
+    await Workspace.cleanupExpired();
 
     const { orderBy = 'name' } = options;
     
     const result = await query(`
-      SELECT * FROM streams 
+      SELECT * FROM workspaces 
       WHERE library_id = $1
       ORDER BY ${orderBy}
     `, [libraryId]);
 
-    return result.rows.map(row => new Stream(row));
+    return result.rows.map(row => new Workspace(row));
   }
 
   /**
-   * Clean up expired unfavorited streams (older than 30 days)
-   * @returns {Promise<number>} - Number of streams deleted
+   * Clean up expired unfavorited workspaces (older than 30 days)
+   * @returns {Promise<number>} - Number of workspaces deleted
    */
   static async cleanupExpired() {
     try {
       const result = await query(`
-        DELETE FROM streams 
+        DELETE FROM workspaces 
         WHERE is_favorited = false 
         AND last_accessed_at < NOW() - INTERVAL '30 days'
         RETURNING id, name
       `);
 
       if (result.rows.length > 0) {
-        console.log(`✅ Cleaned up ${result.rows.length} expired streams`);
+        console.log(`✅ Cleaned up ${result.rows.length} expired workspaces`);
       }
 
       return result.rows.length;
     } catch (error) {
-      console.error('❌ Error cleaning up expired streams:', error.message);
+      console.error('❌ Error cleaning up expired workspaces:', error.message);
       return 0;
     }
   }
@@ -152,7 +152,7 @@ class Stream {
    */
   async updateLastAccessed() {
     await query(
-      'UPDATE streams SET last_accessed_at = CURRENT_TIMESTAMP WHERE id = $1',
+      'UPDATE workspaces SET last_accessed_at = CURRENT_TIMESTAMP WHERE id = $1',
       [this.id]
     );
 
@@ -165,16 +165,16 @@ class Stream {
    */
   async toggleFavorite() {
     const result = await query(
-      'UPDATE streams SET is_favorited = NOT is_favorited WHERE id = $1 RETURNING is_favorited',
+      'UPDATE workspaces SET is_favorited = NOT is_favorited WHERE id = $1 RETURNING is_favorited',
       [this.id]
     );
 
     this.isFavorited = result.rows[0].is_favorited;
-    console.log(`✅ Stream '${this.name}' favorite status: ${this.isFavorited}`);
+    console.log(`✅ Workspace '${this.name}' favorite status: ${this.isFavorited}`);
   }
 
   /**
-   * Update stream metadata
+   * Update workspace metadata
    * @param {Object} updates - Fields to update
    * @returns {Promise<void>}
    */
@@ -194,9 +194,9 @@ class Stream {
 
     // Check name uniqueness if name is being updated
     if (validUpdates.name && validUpdates.name !== this.name) {
-      const existing = await Stream.findByLibraryAndName(this.libraryId, validUpdates.name);
+      const existing = await Workspace.findByLibraryAndName(this.libraryId, validUpdates.name);
       if (existing && existing.id !== this.id) {
-        throw new Error(`Stream '${validUpdates.name}' already exists in this library`);
+        throw new Error(`Workspace '${validUpdates.name}' already exists in this library`);
       }
     }
 
@@ -204,7 +204,7 @@ class Stream {
     const values = [this.id, ...Object.values(validUpdates)];
 
     await query(`
-      UPDATE streams 
+      UPDATE workspaces 
       SET ${setClause}
       WHERE id = $1
     `, values);
@@ -212,20 +212,20 @@ class Stream {
     // Update instance properties
     Object.assign(this, validUpdates);
 
-    console.log(`✅ Updated stream: ${this.name}`);
+    console.log(`✅ Updated workspace: ${this.name}`);
   }
 
   /**
-   * Get all cards in this stream with proper ordering
-   * @returns {Promise<Array<Object>>} - Array of cards with stream metadata
+   * Get all pages in this workspace with proper ordering
+   * @returns {Promise<Array<Object>>} - Array of pages with workspace metadata
    */
-  async getCards() {
+  async getPages() {
     const result = await query(`
-      SELECT c.*, sc.position, sc.depth, sc.is_in_ai_context, sc.is_collapsed, sc.added_at
-      FROM cards c
-      JOIN stream_cards sc ON c.id = sc.card_id
-      WHERE sc.stream_id = $1 AND c.is_active = true
-      ORDER BY sc.position
+      SELECT p.*, wp.position, wp.depth, wp.is_in_ai_context, wp.is_collapsed, wp.added_at
+      FROM pages p
+      JOIN workspace_pages wp ON p.id = wp.page_id
+      WHERE wp.workspace_id = $1 AND p.is_active = true
+      ORDER BY wp.position
     `, [this.id]);
 
     return result.rows.map(row => ({
@@ -244,36 +244,38 @@ class Stream {
       depth: row.depth,
       isInAIContext: row.is_in_ai_context,
       isCollapsed: row.is_collapsed,
-      addedAt: row.added_at
+      addedAt: row.added_at,
+      // Frontend compatibility - mark all items as cards (pages)
+      itemType: 'card'
     }));
   }
 
   /**
-   * Get card count for this stream
-   * @returns {Promise<number>} - Card count
+   * Get page count for this workspace
+   * @returns {Promise<number>} - Page count
    */
-  async getCardCount() {
+  async getPageCount() {
     const result = await query(`
       SELECT COUNT(*) as count 
-      FROM stream_cards sc
-      JOIN cards c ON sc.card_id = c.id
-      WHERE sc.stream_id = $1 AND c.is_active = true
+      FROM workspace_pages wp
+      JOIN pages p ON wp.page_id = p.id
+      WHERE wp.workspace_id = $1 AND p.is_active = true
     `, [this.id]);
 
     return parseInt(result.rows[0].count);
   }
 
   /**
-   * Get cards in AI context for this stream
-   * @returns {Promise<Array<Object>>} - Array of cards in AI context
+   * Get pages in AI context for this workspace
+   * @returns {Promise<Array<Object>>} - Array of pages in AI context
    */
-  async getAIContextCards() {
+  async getAIContextPages() {
     const result = await query(`
-      SELECT c.*, sc.position, sc.depth
-      FROM cards c
-      JOIN stream_cards sc ON c.id = sc.card_id
-      WHERE sc.stream_id = $1 AND sc.is_in_ai_context = true AND c.is_active = true
-      ORDER BY sc.position
+      SELECT p.*, wp.position, wp.depth
+      FROM pages p
+      JOIN workspace_pages wp ON p.id = wp.page_id
+      WHERE wp.workspace_id = $1 AND wp.is_in_ai_context = true AND p.is_active = true
+      ORDER BY wp.position
     `, [this.id]);
 
     return result.rows.map(row => ({
@@ -286,83 +288,83 @@ class Stream {
   }
 
   /**
-   * Delete stream and all its stream_cards relationships
+   * Delete workspace and all its relationships
    * @returns {Promise<void>}
    */
   async delete() {
     await transaction(async (client) => {
-      // First, delete any stream-specific (unsaved) cards that belong only to this stream
-      await client.query('DELETE FROM cards WHERE stream_specific_id = $1', [this.id]);
+      // First, delete any workspace-specific (unsaved) pages that belong only to this workspace
+      await client.query('DELETE FROM pages WHERE workspace_specific_id = $1', [this.id]);
       
-      // Delete stream_cards relationships
-      await client.query('DELETE FROM stream_cards WHERE stream_id = $1', [this.id]);
+      // Delete workspace_pages relationships
+      await client.query('DELETE FROM workspace_pages WHERE workspace_id = $1', [this.id]);
       
-      // Delete stream_files relationships
-      await client.query('DELETE FROM stream_files WHERE stream_id = $1', [this.id]);
+      // Delete workspace_files relationships
+      await client.query('DELETE FROM workspace_files WHERE workspace_id = $1', [this.id]);
       
-      // Finally, delete the stream itself
-      await client.query('DELETE FROM streams WHERE id = $1', [this.id]);
+      // Finally, delete the workspace itself
+      await client.query('DELETE FROM workspaces WHERE id = $1', [this.id]);
       
-      console.log(`✅ Deleted stream: ${this.name} and all associated data`);
+      console.log(`✅ Deleted workspace: ${this.name} and all associated data`);
     });
   }
 
   /**
-   * Duplicate stream with all cards and their states
-   * @param {string} newName - Name for the duplicated stream
-   * @returns {Promise<Stream>} - New stream instance
+   * Duplicate workspace with all pages and their states
+   * @param {string} newName - Name for the duplicated workspace
+   * @returns {Promise<Workspace>} - New workspace instance
    */
   async duplicate(newName) {
     return await transaction(async (client) => {
-      // Create new stream
-      const streamResult = await client.query(`
-        INSERT INTO streams (library_id, name, is_favorited)
+      // Create new workspace
+      const workspaceResult = await client.query(`
+        INSERT INTO workspaces (library_id, name, is_favorited)
         VALUES ($1, $2, false)
         RETURNING *
       `, [this.libraryId, newName]);
 
-      const newStream = new Stream(streamResult.rows[0]);
+      const newWorkspace = new Workspace(workspaceResult.rows[0]);
 
-      // Copy all stream_cards relationships
+      // Copy all workspace_pages relationships
       await client.query(`
-        INSERT INTO stream_cards (stream_id, card_id, position, depth, is_in_ai_context, is_collapsed)
-        SELECT $1, card_id, position, depth, is_in_ai_context, is_collapsed
-        FROM stream_cards
-        WHERE stream_id = $2
+        INSERT INTO workspace_pages (workspace_id, page_id, position, depth, is_in_ai_context, is_collapsed)
+        SELECT $1, page_id, position, depth, is_in_ai_context, is_collapsed
+        FROM workspace_pages
+        WHERE workspace_id = $2
         ORDER BY position
-      `, [newStream.id, this.id]);
+      `, [newWorkspace.id, this.id]);
 
-      console.log(`✅ Duplicated stream '${this.name}' as '${newName}'`);
-      return newStream;
+      console.log(`✅ Duplicated workspace '${this.name}' as '${newName}'`);
+      return newWorkspace;
     });
   }
 
   /**
-   * Get stream info for API responses
-   * @param {boolean} includeCards - Include card information (default: false)
-   * @returns {Promise<Object>} - Stream data
+   * Get workspace info for API responses
+   * @param {boolean} includePages - Include page information (default: false)
+   * @returns {Promise<Object>} - Workspace data
    */
-  async toJSON(includeCards = false) {
-    const cardCount = await this.getCardCount();
-    const aiContextCount = (await this.getAIContextCards()).length;
+  async toJSON(includePages = false) {
+    const pageCount = await this.getPageCount();
+    const aiContextCount = (await this.getAIContextPages()).length;
     
     const data = {
       id: this.id,
       libraryId: this.libraryId,
       name: this.name,
       isFavorited: this.isFavorited,
-      cardCount,
+      pageCount,
       aiContextCount,
       createdAt: this.createdAt,
       lastAccessedAt: this.lastAccessedAt
     };
 
-    if (includeCards) {
-      data.cards = await this.getCards();
+    if (includePages) {
+      data.pages = await this.getPages();
     }
 
     return data;
   }
 }
 
-module.exports = Stream;
+module.exports = Workspace;

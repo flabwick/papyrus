@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import Card from './Card';
+import Page from './Page';
 import FileViewer from './FileViewer';
-import CardSearchInterface from './CardSearchInterface';
+import CardSearchInterface from './PageSearchInterface';
 import FileUploadInterface from './FileUploadInterface';
 import FileSearchInterface from './FileSearchInterface';
 import { Workspace, WorkspaceCard, Card as CardType } from '../types';
@@ -31,7 +31,8 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
   const [generationController, setGenerationController] = useState<AbortController | null>(null);
   const [activeCardIdForUpload, setActiveCardIdForUpload] = useState<string | null>(null);
   const [activeCardIdForFileAdd, setActiveCardIdForFileAdd] = useState<string | null>(null);
-  const { setError: setGlobalError, aiContextCards } = useApp();
+  const { setError: setGlobalError, aiContextPages } = useApp();
+
 
   useEffect(() => {
     loadWorkspace();
@@ -48,7 +49,7 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
 
       // Load workspace items (mixed cards and files)
       const itemsResponse = await api.get(`/workspaces/${workspaceId}/cards`);
-      setWorkspaceItems(itemsResponse.data.items || []); // Use items instead of cards
+      setWorkspaceItems(itemsResponse.data.cards || []); // Use cards property from API response
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Failed to load workspace';
       setError(errorMessage);
@@ -80,7 +81,7 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
       
       // Update server in background
       try {
-        await api.put(`/cards/${cardId}`, updates);
+        await api.put(`/pages/${cardId}`, updates);
         // Server updated successfully, optimistic update was correct
       } catch (serverError) {
         // Revert optimistic update on server error
@@ -104,7 +105,7 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
       
       // Update server in background
       try {
-        await api.delete(`/workspaces/${workspaceId}/cards/${cardId}`);
+        await api.delete(`/workspaces/${workspaceId}/pages/${cardId}`);
         // Server updated successfully, optimistic update was correct
       } catch (serverError) {
         // Revert optimistic update on server error
@@ -158,7 +159,7 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
 
       // Update server in background
       try {
-        await api.put(`/workspaces/${workspaceId}/cards/${workspaceCardId}`, {
+        await api.put(`/workspaces/${workspaceId}/pages/${workspaceCardId}`, {
           isCollapsed: !workspaceItem.isCollapsed
         });
         // Server updated successfully, optimistic update was correct
@@ -188,7 +189,7 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
       const nextPosition = afterPosition + 1;
       
       // Create empty unsaved card immediately
-      const response = await api.post('/cards/create-empty', {
+      const response = await api.post('/pages/create-empty', {
         libraryId: libraryId,
         workspaceId: workspaceId,
         position: nextPosition
@@ -208,7 +209,7 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
         // Restore scroll position
         window.scrollTo(0, scrollPosition);
         
-        const newCardElement = document.querySelector(`[data-card-id="${response.data.card.id}"]`);
+        const newCardElement = document.querySelector(`[data-card-id="${response.data.page.id}"]`);
         if (newCardElement) {
           // Trigger edit mode by clicking the title (which opens edit)
           const titleElement = newCardElement.querySelector('.card-title');
@@ -245,7 +246,7 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
 
       // Update server in background
       try {
-        await api.put(`/workspaces/${workspaceId}/cards/${cardId}`, {
+        await api.put(`/workspaces/${workspaceId}/pages/${cardId}`, {
           position: targetItem.position
         });
         // Server updated successfully, optimistic update was correct
@@ -281,7 +282,7 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
 
       // Update server in background
       try {
-        await api.put(`/workspaces/${workspaceId}/cards/${cardId}`, {
+        await api.put(`/workspaces/${workspaceId}/pages/${cardId}`, {
           position: targetItem.position
         });
         // Server updated successfully, optimistic update was correct
@@ -303,7 +304,7 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
       const scrollPosition = window.scrollY;
       
       const requestBody: any = {
-        cardId: cardId,
+        pageId: cardId,
         isInAIContext: false,
         isCollapsed: false
       };
@@ -313,7 +314,7 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
         requestBody.position = insertAfterPosition;
       }
 
-      await api.post(`/workspaces/${workspaceId}/cards`, requestBody);
+      await api.post(`/workspaces/${workspaceId}/pages`, requestBody);
 
       setActiveCardIdForAdd(null);
       await loadWorkspace();
@@ -337,13 +338,13 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
     try {
       // Create empty unsaved card for workspaceing content
       // Insert after the triggering card position
-      const response = await api.post('/cards/create-empty', {
+      const response = await api.post('/pages/create-empty', {
         libraryId: libraryId,
         workspaceId: workspaceId,
         insertAfterPosition: afterPosition
       });
 
-      const newCardId = response.data.card.id;
+      const newCardId = response.data.page.id;
       setGeneratingCardId(newCardId);
 
       // Reload workspace to show new card
@@ -356,19 +357,18 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
       // Start AI generation using Server-Sent Events
       try {
         // First, initiate the generation via POST
-        const initResponse = await api.post('/ai/generate-workspaceing', {
-          libraryId,
-          workspaceId,
-          cardId: newCardId,
+        const initResponse = await api.post('/ai/generate-streaming', {
+          brainId: libraryId,
+          streamId: workspaceId,
+          pageId: newCardId,
           prompt,
           model,
-          contextCardIds: aiContextCards
+          contextPageIds: aiContextPages
         });
 
-        console.log('🔍 AI generation initiated:', initResponse.status);
 
-        // Then connect to the workspaceing endpoint using EventSource
-        const eventSourceUrl = `${config.apiUrl}/ai/workspace/${newCardId}`;
+        // Then connect to the streaming endpoint using EventSource
+        const eventSourceUrl = `${config.apiUrl}/ai/stream/${newCardId}`;
         
         const eventSource = new EventSource(eventSourceUrl, {
           withCredentials: true
@@ -467,7 +467,7 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
             currentContent += (i > 0 ? ' ' : '') + words[i];
             
             // Update the card content
-            await api.put(`/cards/${newCardId}`, { content: currentContent });
+            await api.put(`/pages/${newCardId}`, { content: currentContent });
             
             // Update local state to reflect changes
             setWorkspaceItems(prev => prev.map(item => {
@@ -613,7 +613,7 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
   const handleCreateCardForEmptyWorkspace = async () => {
     try {
       // Create empty unsaved card immediately at position 0
-      const response = await api.post('/cards/create-empty', {
+      const response = await api.post('/pages/create-empty', {
         libraryId: libraryId,
         workspaceId: workspaceId,
         position: 0
@@ -633,7 +633,7 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
         // Restore scroll position
         window.scrollTo(0, scrollPosition);
         
-        const newCardElement = document.querySelector(`[data-card-id="${response.data.card.id}"]`);
+        const newCardElement = document.querySelector(`[data-card-id="${response.data.page.id}"]`);
         if (newCardElement) {
           // Trigger edit mode by clicking the title (which opens edit)
           const titleElement = newCardElement.querySelector('.card-title');
@@ -729,13 +729,14 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
       {workspaceItems.map((item, index) => {
         const itemId = item.id || '';
         
+        
         if (item.itemType === 'file') {
           // Render file viewer
           return (
             <FileViewer
               key={`file-${itemId}`}
-              file={item}
-              workspaceId={workspaceId}
+              file={item as WorkspaceItem}
+              streamId={workspaceId}
               libraryId={libraryId}
               onDelete={(fileId) => handleDeleteFile(fileId)}
               onMoveUp={(fileId) => handleMoveFileUp(fileId)}
@@ -752,19 +753,19 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
         } else if (item.itemType === 'card') {
           // Render card
           return (
-            <Card
-              key={`card-${itemId}`}
-              card={item as any}
-              workspaceCard={item as any}  
+            <Page
+              key={`card-${itemId}-${activeCardIdForAdd}`}
+              page={item as any}
+              workspacePage={item as any}  
               workspaceId={workspaceId}
               libraryId={libraryId}
               onUpdate={handleUpdateCard}
               onDelete={handleDeleteCard}
-              onDeleteFromBrain={handleDeleteCardFromBrain}
+              onDeleteFromLibrary={handleDeleteCardFromBrain}
               onToggleCollapse={handleToggleCollapse}
-              onAddCardBelow={handleAddCardBelow}
-              onCreateCardBelow={handleCreateCardBelow}
-              onGenerateCardBelow={handleGenerateCardBelow}
+              onAddPageBelow={handleAddCardBelow}
+              onCreatePageBelow={handleCreateCardBelow}
+              onGeneratePageBelow={handleGenerateCardBelow}
               onUploadFileBelow={handleUploadFileBelow}
               isGenerating={generatingCardId === itemId}
               onStopGeneration={handleStopGeneration}
@@ -773,7 +774,7 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
               isFirst={index === 0}
               isLast={index === workspaceItems.length - 1}
               showAddInterface={activeCardIdForAdd === itemId}
-              onAddCard={handleInlineAddCard}
+              onAddPage={handleInlineAddCard}
               onCancelAdd={handleCancelAdd}
               showUploadInterface={activeCardIdForUpload === itemId}
               onFileUploaded={handleFileUploaded}
@@ -795,18 +796,22 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
           <p>This workspace is empty.</p>
           <div className="flex gap-md justify-center" style={{ marginTop: '1rem' }}>
             <button
-              onClick={() => setActiveCardIdForAdd('empty-workspace')}
+              onClick={() => {
+                console.log('⚫ Black Add Page button clicked (empty workspace)!');
+                console.log('Setting activeCardIdForAdd to: empty-workspace');
+                setActiveCardIdForAdd('empty-workspace');
+              }}
               className="btn btn-primary btn-small"
-              title="Add an existing card from this library"
+              title="Add an existing page from this library"
             >
-              📎 Add Card
+              📎 Add Page
             </button>
             <button
               onClick={handleCreateCardForEmptyWorkspace}
               className="btn btn-secondary btn-small"
-              title="Create a new card in this library"
+              title="Create a new page in this library"
             >
-              ✨ Create Card
+              ✨ Create Page
             </button>
             <button
               onClick={() => setActiveCardIdForUpload('empty-workspace')}
@@ -830,6 +835,17 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
             >
               📚 Add File
             </button>
+            <button
+              onClick={() => setGeneratingCardId('empty-workspace-generate')}
+              className="btn btn-small"
+              title="Generate page with AI"
+              style={{ 
+                backgroundColor: '#f59e0b',
+                color: 'white'
+              }}
+            >
+              🤖 Generate
+            </button>
           </div>
         </div>
       )}
@@ -849,7 +865,7 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
       {workspaceItems.length === 0 && activeCardIdForUpload === 'empty-workspace' && (
         <FileUploadInterface
           libraryId={libraryId}
-          workspaceId={workspaceId}
+          streamId={workspaceId}
           position={0}
           onFileUploaded={handleFileUploaded}
           onCancel={handleCancelUpload}
@@ -864,6 +880,47 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
           onFileSelected={(file) => handleAddExistingFile(file, null)}
           onCancel={handleCancelFileAdd}
         />
+      )}
+
+      {/* Empty workspace generate interface */}
+      {workspaceItems.length === 0 && generatingCardId === 'empty-workspace-generate' && (
+        <div className="generate-interface" style={{ padding: '1rem', border: '1px solid #e5e7eb', borderRadius: '8px', margin: '1rem 0' }}>
+          <h3>Generate Page with AI</h3>
+          <textarea
+            placeholder="Describe what you want to generate..."
+            style={{ width: '100%', minHeight: '100px', padding: '0.5rem', border: '1px solid #d1d5db', borderRadius: '4px' }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && e.ctrlKey) {
+                const prompt = (e.target as HTMLTextAreaElement).value;
+                if (prompt.trim()) {
+                  handleGenerateCardBelow(0, prompt, 'gpt-4');
+                  setGeneratingCardId(null);
+                }
+              }
+            }}
+          />
+          <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.5rem' }}>
+            <button
+              className="btn btn-primary btn-small"
+              onClick={(e) => {
+                const textarea = e.currentTarget.parentElement?.previousElementSibling as HTMLTextAreaElement;
+                const prompt = textarea?.value;
+                if (prompt?.trim()) {
+                  handleGenerateCardBelow(0, prompt, 'gpt-4');
+                  setGeneratingCardId(null);
+                }
+              }}
+            >
+              Generate
+            </button>
+            <button
+              className="btn btn-secondary btn-small"
+              onClick={() => setGeneratingCardId(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
       
     </div>

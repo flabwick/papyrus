@@ -10,7 +10,7 @@ interface LibraryManagementProps {
   onBack: () => void;
 }
 
-type Section = 'workspaces' | 'cards' | 'files';
+type Section = 'workspaces' | 'pages' | 'files';
 
 const LibraryManagement: React.FC<LibraryManagementProps> = ({
   library,
@@ -20,7 +20,7 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
 }) => {
   const [activeSection, setActiveSection] = useState<Section>('workspaces');
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [cards, setCards] = useState<Card[]>([]);
+  const [pages, setPages] = useState<Card[]>([]);
   const [files, setFiles] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isRenamingLibrary, setIsRenamingLibrary] = useState(false);
@@ -35,19 +35,25 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
       const response = await api.get(`/workspaces?libraryId=${library.id}`);
       setWorkspaces(response.data.workspaces || []);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load workspaces');
+      const errorMessage = typeof err.response?.data?.message === 'string' 
+        ? err.response.data.message 
+        : err.response?.data?.message?.message || err.message || 'Failed to load workspaces';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadCards = async () => {
+  const loadPages = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get(`/librarys/${library.id}/cards`);
-      setCards(response.data.cards || []);
+      const response = await api.get(`/libraries/${library.id}/pages`);
+      setPages(response.data.pages || []);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load cards');
+      const errorMessage = typeof err.response?.data?.message === 'string' 
+        ? err.response.data.message 
+        : err.response?.data?.message?.message || err.message || 'Failed to load pages';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -56,10 +62,13 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
   const loadFiles = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get(`/librarys/${library.id}/files`);
+      const response = await api.get(`/libraries/${library.id}/files`);
       setFiles(response.data.files || []);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load files');
+      const errorMessage = typeof err.response?.data?.message === 'string' 
+        ? err.response.data.message 
+        : err.response?.data?.message?.message || err.message || 'Failed to load files';
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -72,8 +81,8 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
   useEffect(() => {
     if (activeSection === 'workspaces') {
       loadWorkspaces();
-    } else if (activeSection === 'cards') {
-      loadCards();
+    } else if (activeSection === 'pages') {
+      loadPages();
     } else if (activeSection === 'files') {
       loadFiles();
     }
@@ -101,9 +110,9 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
 
     try {
       // Check if library name already exists
-      const response = await api.get('/librarys');
-      const librarys = response.data.librarys || [];
-      const nameExists = librarys.some((b: any) => 
+      const response = await api.get('/libraries');
+      const libraries = response.data.libraries || [];
+      const nameExists = libraries.some((b: any) => 
         b.id !== library.id && 
         ((b.name || b.title || '').toLowerCase() === newName.toLowerCase())
       );
@@ -116,13 +125,16 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
       }
 
       // Update the library name
-      await api.put(`/librarys/${library.id}`, { name: newName });
+      await api.put(`/libraries/${library.id}`, { name: newName });
       const updatedLibrary = { ...library, name: newName } as any;
       onLibrarySelect(updatedLibrary);
       
       setIsRenamingLibrary(false);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to rename library');
+      const errorMessage = typeof err.response?.data?.message === 'string' 
+        ? err.response.data.message 
+        : err.response?.data?.message?.message || err.message || 'Failed to rename library';
+      setError(errorMessage);
       setLibraryTitle(currentName); // Reset on error
       setIsRenamingLibrary(false);
     }
@@ -148,7 +160,10 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
       setWorkspaces([...workspaces, newWorkspace]);
       onWorkspaceSelect(newWorkspace);
     } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to create workspace');
+      const errorMessage = typeof err.response?.data?.message === 'string' 
+        ? err.response.data.message 
+        : err.response?.data?.message?.message || err.message || 'Failed to create workspace';
+      setError(errorMessage);
     }
   };
 
@@ -186,8 +201,8 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
       const newWorkspace = response.data.workspace;
       
       // Add the card to the new workspace
-      await api.post(`/workspaces/${newWorkspace.id}/cards`, {
-        cardId: card.id,
+      await api.post(`/workspaces/${newWorkspace.id}/pages`, {
+        pageId: card.id,
         position: 1,
       });
       
@@ -197,13 +212,13 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
     }
   };
 
-  const handleDeleteCard = async (card: Card) => {
-    if (window.confirm(`Are you sure you want to delete "${card.title}"?`)) {
+  const handleDeletePage = async (page: Card) => {
+    if (window.confirm(`Are you sure you want to delete "${page.title}"?`)) {
       try {
-        await api.delete(`/cards/${card.id}`);
-        setCards(cards.filter(c => c.id !== card.id));
+        await api.delete(`/pages/${page.id}`);
+        setPages(pages.filter(c => c.id !== page.id));
       } catch (err: any) {
-        setError(err.response?.data?.message || 'Failed to delete card');
+        setError(err.response?.data?.message || 'Failed to delete page');
       }
     }
   };
@@ -230,7 +245,7 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
     const fileName = file.pdf_title || file.epub_title || file.file_name || 'Untitled';
     if (window.confirm(`Are you sure you want to delete "${fileName}"? This will remove the file from all workspaces and delete it permanently.`)) {
       try {
-        await api.delete(`/librarys/${library.id}/files/${file.id}`);
+        await api.delete(`/libraries/${library.id}/files/${file.id}`);
         setFiles(files.filter(f => f.id !== file.id));
       } catch (err: any) {
         setError(err.response?.data?.message || 'Failed to delete file');
@@ -255,11 +270,11 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
     }
   });
 
-  const filteredCards = cards.filter(card => {
-    const cardTitle = card.title || '';
-    const cardPreview = (card as any).content_preview || card.contentPreview || '';
-    return cardTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
-           cardPreview.toLowerCase().includes(searchTerm.toLowerCase());
+  const filteredPages = pages.filter(page => {
+    const pageTitle = page.title || '';
+    const pagePreview = (page as any).content_preview || page.contentPreview || '';
+    return pageTitle.toLowerCase().includes(searchTerm.toLowerCase()) ||
+           pagePreview.toLowerCase().includes(searchTerm.toLowerCase());
   }).sort((a, b) => {
     switch (sortBy) {
       case 'name':
@@ -361,10 +376,10 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
         </button>
         <button
           type="button"
-          className={`nav-tab ${activeSection === 'cards' ? 'active' : ''}`}
-          onClick={() => setActiveSection('cards')}
+          className={`nav-tab ${activeSection === 'pages' ? 'active' : ''}`}
+          onClick={() => setActiveSection('pages')}
         >
-          Cards ({cards.length})
+          Pages ({pages.length})
         </button>
         <button
           type="button"
@@ -392,7 +407,7 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
             >
               <option value="date">Sort by Date</option>
               <option value="name">Sort by Name</option>
-              {activeSection === 'cards' && <option value="size">Sort by Size</option>}
+              {activeSection === 'pages' && <option value="size">Sort by Size</option>}
             </select>
           </div>
         )}
@@ -456,34 +471,34 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
           </div>
         )}
 
-        {activeSection === 'cards' && (
-          <div className="cards-section">
+        {activeSection === 'pages' && (
+          <div className="pages-section">
             <div className="section-header">
-              <h3>Cards</h3>
+              <h3>Pages</h3>
             </div>
 
             {isLoading ? (
               <div className="loading-spinner"></div>
-            ) : filteredCards.length === 0 ? (
+            ) : filteredPages.length === 0 ? (
               <div className="empty-state">
-                <p>No cards found in this library.</p>
+                <p>No pages found in this library.</p>
               </div>
             ) : (
               <div className="items-grid">
-                {filteredCards.map((card) => {
-                  const contentPreview = (card as any).content_preview || card.contentPreview || '';
-                  const fileSize = parseInt((card as any).file_size || card.fileSize || '0');
-                  const updatedDate = (card as any).updated_at || card.updatedAt || card.createdAt;
+                {filteredPages.map((page) => {
+                  const contentPreview = (page as any).content_preview || page.contentPreview || '';
+                  const fileSize = parseInt((page as any).file_size || page.fileSize || '0');
+                  const updatedDate = (page as any).updated_at || page.updatedAt || page.createdAt;
                   
                   return (
-                    <div key={card.id} className="item-card card-card">
+                    <div key={page.id} className="item-card card-card">
                       <div className="item-card-header">
-                        <h4 className="item-title">{card.title}</h4>
+                        <h4 className="item-title">{page.title}</h4>
                         <div className="item-actions">
                           <button
                             type="button"
                             className="action-btn open-btn"
-                            onClick={() => handleOpenCardInNewWorkspace(card)}
+                            onClick={() => handleOpenCardInNewWorkspace(page)}
                             title="Open in new workspace"
                           >
                             ↗
@@ -491,7 +506,7 @@ const LibraryManagement: React.FC<LibraryManagementProps> = ({
                           <button
                             type="button"
                             className="action-btn delete-btn"
-                            onClick={() => handleDeleteCard(card)}
+                            onClick={() => handleDeletePage(page)}
                             title="Delete card"
                           >
                             ×

@@ -34,7 +34,7 @@ const FileSearchInterface: React.FC<FileSearchInterfaceProps> = ({
   const loadAllFiles = async () => {
     try {
       setIsLoading(true);
-      const response = await api.get(`/librarys/${libraryId}/files`);
+      const response = await api.get(`/libraries/${libraryId}/files`);
       setAllFiles(response.data.files || []);
       setSearchResults(response.data.files || []);
     } catch (error) {

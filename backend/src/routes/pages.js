@@ -215,8 +215,7 @@ router.post('/', async (req, res) => {
           
         case 'file':
           card = await PageFactory.createFileCard(libraryId, fileId, title.trim(), {
-            content: content,
-            contentPreview: content.substring(0, 500)
+            content: content
           });
           break;
           
@@ -318,7 +317,7 @@ router.put('/:id', async (req, res) => {
       await card.updateContent(content);
       
       // Process links in the updated content
-      await linkParser.processCardLinks(card.id, content);
+      await linkParser.processPageLinks(card.id, content);
     }
 
     // Update other fields if provided
@@ -739,8 +738,8 @@ router.post('/:id/convert-to-saved', async (req, res) => {
     // Convert using PageFactory
     await PageFactory.convertUnsavedToSaved(id, title.trim());
 
-    // Refresh card data
-    const updatedCard = await Page.findById(id);
+    // Refresh page data
+    const updatedPage = await Page.findById(id);
     const pageData = await updatedPage.toJSON(true);
 
     res.json({
@@ -974,7 +973,7 @@ router.post('/create-empty', async (req, res) => {
     // Create empty unsaved card for immediate editing
     // Use insertAfterPosition if provided, otherwise use position
     const insertPosition = insertAfterPosition !== undefined ? insertAfterPosition : position;
-    const card = await PageFactory.createEmptyUnsavedCard(libraryId, workspaceId, insertPosition, insertAfterPosition !== undefined);
+    const card = await PageFactory.createEmptyUnsavedPage(libraryId, workspaceId, insertPosition, insertAfterPosition !== undefined);
 
     const pageData = await card.toJSON(true);
 
@@ -1185,7 +1184,7 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
       });
     }
 
-    const brain = brainValidation.brain;
+    const library = brainValidation.library;
     
     // Process file based on type
     let processResult;
@@ -1199,9 +1198,9 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
         });
       } else if (fileExt === '.epub') {
         // Create output directory for cover images
-        const brainFolderPath = brain.folderPath || 
-                               path.join(process.cwd(), 'backend', 'storage', brain.userId || req.session.userId, 'brains', brain.name);
-        const filesDir = path.join(brainFolderPath, 'files');
+        const libraryFolderPath = library.folderPath || 
+                               path.join(process.cwd(), 'backend', 'storage', library.userId || req.session.userId, 'libraries', library.name);
+        const filesDir = path.join(libraryFolderPath, 'files');
         
         processResult = await epubProcessor.processEpubFile(tempFilePath, {
           title: path.basename(req.file.originalname, '.epub'),
@@ -1214,23 +1213,23 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
         hasMetadata: !!processResult.metadata
       });
       
-      // Move file to brain storage
-      const brainFolderPath = brain.folderPath || 
-                             path.join(process.cwd(), 'backend', 'storage', brain.userId || req.session.userId, 'brains', brain.name);
-      console.log(`Brain folder path: ${brainFolderPath}`);
-      const brainStoragePath = path.join(brainFolderPath, 'files');
-      console.log(`Creating storage directory: ${brainStoragePath}`);
-      await fs.ensureDir(brainStoragePath);
+      // Move file to library storage
+      const libraryFolderPath = library.folderPath || 
+                             path.join(process.cwd(), 'backend', 'storage', library.userId || req.session.userId, 'libraries', library.name);
+      console.log(`Library folder path: ${libraryFolderPath}`);
+      const libraryStoragePath = path.join(libraryFolderPath, 'files');
+      console.log(`Creating storage directory: ${libraryStoragePath}`);
+      await fs.ensureDir(libraryStoragePath);
       
       // Handle duplicate handling based on user choice
       let finalFileName = newFileName || req.file.originalname;
-      let finalFilePath = path.join(brainStoragePath, finalFileName);
+      let finalFilePath = path.join(libraryStoragePath, finalFileName);
       let actualFinalPath = finalFilePath;
       
       if (action === 'replace' && replaceFileId) {
         // Replace existing file - remove old file from database and filesystem
         const { query } = require('../models/database');
-        const oldFileResult = await query('SELECT file_path FROM files WHERE id = $1 AND brain_id = $2', 
+        const oldFileResult = await query('SELECT file_path FROM files WHERE id = $1 AND library_id = $2', 
                                           [replaceFileId, libraryId]);
         if (oldFileResult.rows.length > 0) {
           const oldFilePath = oldFileResult.rows[0].file_path;
@@ -1247,7 +1246,7 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
         let counter = 1;
         while (await fs.pathExists(actualFinalPath)) {
           const nameWithoutExt = path.basename(finalFileName, fileExt);
-          actualFinalPath = path.join(brainStoragePath, `${nameWithoutExt}_${counter}${fileExt}`);
+          actualFinalPath = path.join(libraryStoragePath, `${nameWithoutExt}_${counter}${fileExt}`);
           finalFileName = `${nameWithoutExt}_${counter}${fileExt}`;
           counter++;
         }
@@ -1262,7 +1261,7 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
       if (fileExt === '.pdf') {
         fileInsertQuery = `
           INSERT INTO files (
-            brain_id, file_name, file_type, file_size, file_path, 
+            library_id, file_name, file_type, file_size, file_path, 
             pdf_page_count, pdf_author, pdf_title,
             content_preview, processing_status
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -1283,7 +1282,7 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
       } else if (fileExt === '.epub') {
         fileInsertQuery = `
           INSERT INTO files (
-            brain_id, file_name, file_type, file_size, file_path, 
+            library_id, file_name, file_type, file_size, file_path, 
             epub_title, epub_author, epub_description, epub_chapter_count,
             content_preview, processing_status, cover_image_path
           ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
@@ -1560,9 +1559,9 @@ router.get('/files/:id/download', async (req, res) => {
     // Get file record and verify ownership
     const db = require('../models/database');
     const result = await db.query(`
-      SELECT f.*, b.user_id 
+      SELECT f.*, l.user_id 
       FROM files f
-      JOIN brains b ON f.brain_id = b.id
+      JOIN libraries l ON f.library_id = l.id
       WHERE f.id = $1
     `, [id]);
 

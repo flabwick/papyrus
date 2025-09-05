@@ -23,13 +23,13 @@ const Header: React.FC<HeaderProps> = ({ onLibrarySelect, onWorkspaceSelect, onN
     const loadInitialData = async () => {
       if (!selectedLibrary) {
         try {
-          const response = await api.get('/librarys');
-          const librarys = response.data.librarys || [];
-          if (librarys.length > 0) {
-            onLibrarySelect(librarys[0]);
+          const response = await api.get('/libraries');
+          const libraries = response.data.libraries || [];
+          if (libraries.length > 0) {
+            onLibrarySelect(libraries[0]);
           }
         } catch (err: any) {
-          setError(err.response?.data?.message || 'Failed to load librarys');
+          setError(err.response?.data?.message || 'Failed to load libraries');
         }
       }
     };

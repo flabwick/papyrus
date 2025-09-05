@@ -128,7 +128,7 @@ ${fullText}`;
     } else {
       // File card mode - show metadata and preview
       const preview = fullText.trim() ? 
-        fullText.substring(0, 500).trim() + (fullText.length > 500 ? '...' : '') : 
+        fullText.trim() : 
         '*No text content could be extracted from this PDF.*';
         
       content = `# ${title}
@@ -157,7 +157,7 @@ ${preview}
         characterCount: content.length,
         isFileCard: true,
         hasFullText: !!fullText.trim(),
-        contentPreview: fullText.substring(0, 500).trim()
+        contentPreview: fullText.trim() // Use full text, no 500 char limit
       },
       fileInfo: {
         path: filePath,

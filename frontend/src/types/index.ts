@@ -21,12 +21,12 @@ export interface Library {
   storageUsed: number;
 }
 
-// Card types
-export interface Card {
+// Page types (formerly Card types)
+export interface Page {
   id: string;
   libraryId: string;
   title: string | null;
-  displayTitle: string; // Title or "Click to add title..." for unsaved cards
+  displayTitle: string; // Title or "Click to add title..." for unsaved pages
   contentPreview: string; // First 500 characters for quick display
   fileSize: number;
   hasFile: boolean;
@@ -35,8 +35,8 @@ export interface Card {
   createdAt: string;
   updatedAt: string;
   content?: string; // Full content (only included when specifically requested)
-  // Card Type System fields (optional for backward compatibility)
-  cardType?: 'saved' | 'file' | 'unsaved';
+  // Page Type System fields (optional for backward compatibility)
+  pageType?: 'saved' | 'file' | 'unsaved';
   isLibraryWide?: boolean;
   workspaceSpecificId?: string;
   fileId?: string;
@@ -50,9 +50,9 @@ export interface Card {
   };
 }
 
-export interface CardVersion {
+export interface PageVersion {
   id: string;
-  cardId: string;
+  pageId: string;
   versionNumber: number;
   content: string;
   isActive: boolean;
@@ -69,18 +69,18 @@ export interface Workspace {
   lastAccessedAt: string;
 }
 
-export interface WorkspaceCard {
-  // Workspace card metadata
-  id?: string; // Workspace card ID (may not always be present)
+export interface WorkspacePage {
+  // Workspace page metadata
+  id?: string; // Workspace page ID (may not always be present)
   workspaceId?: string;
-  cardId?: string;
+  pageId?: string;
   position: number;
   isInAIContext: boolean;
   isCollapsed: boolean;
   addedAt: string;
   depth: number;
   
-  // Card data (merged in when fetching workspace cards)
+  // Page data (merged in when fetching workspace pages)
   libraryId: string;
   title: string | null;
   displayTitle: string;
@@ -92,8 +92,8 @@ export interface WorkspaceCard {
   createdAt: string;
   updatedAt: string;
   content?: string;
-  // Card Type System fields (optional for backward compatibility)
-  cardType?: 'saved' | 'file' | 'unsaved';
+  // Page Type System fields (optional for backward compatibility)
+  pageType?: 'saved' | 'file' | 'unsaved';
   isLibraryWide?: boolean;
   workspaceSpecificId?: string;
   fileId?: string;
@@ -107,11 +107,11 @@ export interface WorkspaceCard {
   };
 }
 
-// Card links
-export interface CardLink {
+// Page links (formerly Card links)
+export interface PageLink {
   id: string;
-  sourceCardId: string;
-  targetCardId: string;
+  sourcePageId: string;
+  targetPageId: string;
   linkText: string;
   createdAt: string;
 }
@@ -133,7 +133,7 @@ export interface AuthState {
 export interface AppState {
   selectedLibrary: Library | null;
   currentWorkspace: Workspace | null;
-  aiContextCards: string[]; // Array of card IDs
+  aiContextPages: string[]; // Array of page IDs
   isLoading: boolean;
   error: string | null;
 }
@@ -150,3 +150,9 @@ export interface ApiError {
   code?: string;
   details?: any;
 }
+
+// Legacy type aliases for backward compatibility during migration
+export type Card = Page;
+export type CardVersion = PageVersion;
+export type WorkspaceCard = WorkspacePage;
+export type CardLink = PageLink;

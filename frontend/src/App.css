@@ -517,8 +517,31 @@ body {
 
 
 .card-expanded .card-content-expanded {
-  max-height: none;
-  overflow: visible;
+  max-height: 70vh; /* Portrait aspect ratio - about 70% of viewport height */
+  overflow-y: auto; /* Internal scrolling */
+  overflow-x: hidden;
+  padding-right: 8px; /* Space for scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db #f8f9fa;
+}
+
+/* Webkit scrollbar styling */
+.card-expanded .card-content-expanded::-webkit-scrollbar {
+  width: 6px;
+}
+
+.card-expanded .card-content-expanded::-webkit-scrollbar-track {
+  background: #f8f9fa;
+  border-radius: 3px;
+}
+
+.card-expanded .card-content-expanded::-webkit-scrollbar-thumb {
+  background: #d1d5db;
+  border-radius: 3px;
+}
+
+.card-expanded .card-content-expanded::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
 /* AI Context styling - purple border only */

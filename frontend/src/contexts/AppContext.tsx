@@ -4,7 +4,7 @@ import { Library, Workspace, AppState } from '../types';
 interface AppContextType extends AppState {
   setLibrary: (library: Library | null) => void;
   setWorkspace: (workspace: Workspace | null) => void;
-  toggleAIContext: (cardId: string) => void;
+  toggleAIContext: (pageId: string) => void;
   clearAIContext: () => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
@@ -21,7 +21,7 @@ export const useApp = () => {
 };
 
 type AppAction =
-  | { type: 'SET_BRAIN'; payload: Library | null }
+  | { type: 'SET_LIBRARY'; payload: Library | null }
   | { type: 'SET_WORKSPACE'; payload: Workspace | null }
   | { type: 'TOGGLE_AI_CONTEXT'; payload: string }
   | { type: 'CLEAR_AI_CONTEXT' }
@@ -31,18 +31,18 @@ type AppAction =
 const initialState: AppState = {
   selectedLibrary: null,
   currentWorkspace: null,
-  aiContextCards: [],
+  aiContextPages: [],
   isLoading: false,
   error: null,
 };
 
 const appReducer = (state: AppState, action: AppAction): AppState => {
   switch (action.type) {
-    case 'SET_BRAIN':
+    case 'SET_LIBRARY':
       return {
         ...state,
         selectedLibrary: action.payload,
-        currentWorkspace: null, // Clear workspace when changing librarys
+        currentWorkspace: null, // Clear workspace when changing libraries
       };
     case 'SET_WORKSPACE':
       return {
@@ -50,18 +50,18 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
         currentWorkspace: action.payload,
       };
     case 'TOGGLE_AI_CONTEXT':
-      const cardId = action.payload;
-      const isInContext = state.aiContextCards.includes(cardId);
+      const pageId = action.payload;
+      const isInContext = state.aiContextPages.includes(pageId);
       return {
         ...state,
-        aiContextCards: isInContext
-          ? state.aiContextCards.filter(id => id !== cardId)
-          : [...state.aiContextCards, cardId],
+        aiContextPages: isInContext
+          ? state.aiContextPages.filter((id: string) => id !== pageId)
+          : [...state.aiContextPages, pageId],
       };
     case 'CLEAR_AI_CONTEXT':
       return {
         ...state,
-        aiContextCards: [],
+        aiContextPages: [],
       };
     case 'SET_LOADING':
       return {
@@ -86,15 +86,15 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
   const [state, dispatch] = useReducer(appReducer, initialState);
 
   const setLibrary = (library: Library | null) => {
-    dispatch({ type: 'SET_BRAIN', payload: library });
+    dispatch({ type: 'SET_LIBRARY', payload: library });
   };
 
   const setWorkspace = (workspace: Workspace | null) => {
     dispatch({ type: 'SET_WORKSPACE', payload: workspace });
   };
 
-  const toggleAIContext = (cardId: string) => {
-    dispatch({ type: 'TOGGLE_AI_CONTEXT', payload: cardId });
+  const toggleAIContext = (pageId: string) => {
+    dispatch({ type: 'TOGGLE_AI_CONTEXT', payload: pageId });
   };
 
   const clearAIContext = () => {

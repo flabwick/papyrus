@@ -120,7 +120,7 @@ const AppContent: React.FC = () => {
             </div>
           ) : (
             <div className="text-center" style={{ padding: '2rem' }}>
-              <p>Loading your librarys...</p>
+              <p>Loading your libraries...</p>
             </div>
           )}
         </div>

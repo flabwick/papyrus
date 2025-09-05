@@ -109,7 +109,7 @@ router.get('/stream/:pageId', requireAuth, async (req, res) => {
 
     // Get page details to extract generation parameters
     const pageResult = await query(
-      'SELECT brain_id, content_preview FROM pages WHERE id = $1',
+      'SELECT library_id, content_preview FROM pages WHERE id = $1',
       [pageId]
     );
     
@@ -120,7 +120,7 @@ router.get('/stream/:pageId', requireAuth, async (req, res) => {
       });
     }
 
-    const brainId = pageResult.rows[0].brain_id;
+    const libraryId = pageResult.rows[0].library_id;
     
     // Parse generation parameters from content_preview
     let params;
@@ -184,8 +184,8 @@ router.get('/stream/:pageId', requireAuth, async (req, res) => {
     const context = [];
     if (contextPageIds.length > 0) {
       const contextResult = await query(
-        'SELECT id, title, content_preview as content, created_at FROM pages WHERE id = ANY($1) AND brain_id = $2 ORDER BY created_at ASC',
-        [contextPageIds, brainId]
+        'SELECT id, title, content_preview as content, created_at FROM pages WHERE id = ANY($1) AND library_id = $2 ORDER BY created_at ASC',
+        [contextPageIds, libraryId]
       );
       
       // Format context pages with proper structure for AI

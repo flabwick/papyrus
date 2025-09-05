@@ -206,7 +206,7 @@ Happy knowledge building! 🧠
             library.id,
             'Welcome to Papyrus',
             `backend/storage/${username}/libraries/my-first-library/welcome.md`,
-            welcomeContent.substring(0, 500),
+            welcomeContent, // Use full content, no 500 char limit
             Buffer.byteLength(welcomeContent, 'utf8'),
             'file',
             true
