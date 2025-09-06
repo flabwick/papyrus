@@ -636,23 +636,6 @@ const Page: React.FC<PageProps> = ({
                 ) : (
                   <>
                     <ReactMarkdown>{page.content || page.contentPreview}</ReactMarkdown>
-                    {(!page.content && page.contentPreview && page.contentPreview.length >= 500) && (
-                      <div 
-                        className="read-more-indicator"
-                        onClick={async () => {
-                          await loadFullContent();
-                        }}
-                        style={{ 
-                          color: '#6b7280', 
-                          fontSize: '12px', 
-                          marginTop: '8px', 
-                          cursor: 'pointer',
-                          textDecoration: 'underline'
-                        }}
-                      >
-                        {isLoadingContent ? 'Loading full content...' : '...click to load full content'}
-                      </div>
-                    )}
                   </>
                 )
               ) : (
@@ -675,90 +658,6 @@ const Page: React.FC<PageProps> = ({
         </div>
       )}
       
-      {/* Action buttons */}
-      {isExpanded && (
-        <div className="card-actions">
-          {/* Add Page Below button */}
-          {onAddPageBelow && (
-            <button
-              type="button"
-              className="btn btn-small"
-              onClick={() => onAddPageBelow(workspacePage.position)}
-              title="Add existing page below"
-              style={{ 
-                backgroundColor: '#3b82f6',
-                color: 'white'
-              }}
-            >
-              + Add Page
-            </button>
-          )}
-          
-          {/* Create New Page Below button */}
-          {onCreatePageBelow && (
-            <button
-              type="button"
-              className="btn btn-small"
-              onClick={() => onCreatePageBelow(workspacePage.position)}
-              title="Create new page below"
-              style={{ 
-                backgroundColor: '#10b981',
-                color: 'white'
-              }}
-            >
-              + New Page
-            </button>
-          )}
-          
-          {/* Generate Card Below button */}
-          {onGeneratePageBelow && (
-            <button
-              type="button"
-              className="btn btn-small"
-              onClick={() => setShowGenerateInterface(true)}
-              title="Generate page with AI"
-              style={{ 
-                backgroundColor: '#f59e0b',
-                color: 'white'
-              }}
-            >
-              🤖 Generate
-            </button>
-          )}
-          
-          {/* Show Add Interface button */}
-          {!localShowAddInterface && onAddPage && (
-            <button
-              type="button"
-              className="btn btn-small"
-              onClick={() => setLocalShowAddInterface(true)}
-              title="Add existing page"
-              style={{ 
-                backgroundColor: '#3b82f6',
-                color: 'white'
-              }}
-            >
-              📄 Add Page
-            </button>
-          )}
-          
-          {/* Show File Add Interface button */}
-          {!localShowFileAddInterface && onAddFileBelow && (
-            <button
-              type="button"
-              className="btn btn-small"
-              onClick={() => onAddFileBelow(workspacePage.position)}
-              title="Add existing file"
-              style={{ 
-                backgroundColor: '#8b5cf6',
-                color: 'white'
-              }}
-            >
-              📚 Add File
-            </button>
-          )}
-        </div>
-      )}
       
       {/* Inline Page Search Interface */}
       {localShowAddInterface && onAddPage && onCancelAdd && (

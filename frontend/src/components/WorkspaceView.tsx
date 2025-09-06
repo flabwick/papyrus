@@ -4,6 +4,7 @@ import FileViewer from './FileViewer';
 import CardSearchInterface from './PageSearchInterface';
 import FileUploadInterface from './FileUploadInterface';
 import FileSearchInterface from './FileSearchInterface';
+import CommandLineInterface from './CommandLineInterface';
 import { Workspace, WorkspaceCard, Card as CardType } from '../types';
 import api from '../services/api';
 import { useApp } from '../contexts/AppContext';
@@ -31,8 +32,155 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
   const [generationController, setGenerationController] = useState<AbortController | null>(null);
   const [activeCardIdForUpload, setActiveCardIdForUpload] = useState<string | null>(null);
   const [activeCardIdForFileAdd, setActiveCardIdForFileAdd] = useState<string | null>(null);
+  const [showCommandUpload, setShowCommandUpload] = useState(false);
+  const [showCommandAddPage, setShowCommandAddPage] = useState(false);
+  const [showCommandGenerate, setShowCommandGenerate] = useState(false);
+  const [showCommandAddFile, setShowCommandAddFile] = useState(false);
   const { setError: setGlobalError, aiContextPages } = useApp();
 
+  // Calculate approximate token count for AI context
+  const calculateTokenCount = (text: string): number => {
+    // Rough approximation: 1 token ≈ 4 characters for English text
+    return Math.ceil(text.length / 4);
+  };
+
+  const getAIContextInfo = () => {
+    const contextPages = aiContextPages || [];
+    const totalPages = contextPages.length;
+    
+    let totalTokens = 0;
+    contextPages.forEach((pageId: string) => {
+      // Find the actual page data from workspace items
+      const page = workspaceItems.find(item => item.id === pageId || item.pageId === pageId);
+      if (page) {
+        const content = (page as any).content || (page as any).contentPreview || '';
+        const title = (page as any).title || '';
+        totalTokens += calculateTokenCount(title + ' ' + content);
+      }
+    });
+
+    return { totalPages, totalTokens };
+  };
+
+  // Command handlers for CommandLineInterface
+  const handleCommandUpload = () => {
+    setShowCommandUpload(true);
+  };
+
+  const handleCommandNewPage = async () => {
+    try {
+      // Calculate position for new page
+      const nextPosition = workspaceItems.length;
+      
+      // Create empty unsaved page immediately
+      const response = await api.post('/pages/create-empty', {
+        libraryId: libraryId,
+        workspaceId: workspaceId,
+        position: nextPosition
+      });
+
+      console.log('Page creation response:', response.data);
+      console.log('Response status:', response.status);
+      console.log('Has page:', !!response.data.page);
+      console.log('Has success:', !!response.data.success);
+
+      if (response.data.page) {
+        // Save scroll position before reload
+        const scrollPosition = window.scrollY;
+        
+        // Force reload workspace to show new page
+        console.log('Reloading workspace...');
+        await loadWorkspace();
+        console.log('Workspace reloaded successfully');
+        
+        // Restore scroll position and auto-focus the new page for editing
+        setTimeout(() => {
+          // Restore scroll position
+          window.scrollTo(0, scrollPosition);
+          
+          const newPageElement = document.querySelector(`[data-card-id="${response.data.page.id}"]`);
+          console.log('Looking for new page element:', response.data.page.id, newPageElement);
+          if (newPageElement) {
+            // First expand the page by clicking the expand button
+            const expandButton = newPageElement.querySelector('button[title="Expand"]');
+            if (expandButton) {
+              (expandButton as HTMLElement).click();
+            }
+            
+            // Then trigger content editing by clicking the edit button
+            setTimeout(() => {
+              const editButton = newPageElement.querySelector('button[title="Edit card"]');
+              if (editButton) {
+                (editButton as HTMLElement).click();
+              }
+            }, 100);
+          }
+        }, 200);
+      }
+    } catch (error) {
+      console.error('Failed to create new page:', error);
+      setGlobalError('Failed to create new page');
+    }
+  };
+
+  const handleCommandGenerate = () => {
+    setShowCommandGenerate(true);
+  };
+
+  const handleCommandAddPage = () => {
+    setShowCommandAddPage(true);
+  };
+
+  const handleCommandAddFile = () => {
+    setShowCommandAddFile(true);
+  };
+
+  // Add missing functions for command interface
+  const handleAddCardToWorkspace = async (cardId: string, position: number) => {
+    try {
+      console.log('Adding page to workspace:', cardId, 'at position:', position);
+      const response = await api.post(`/workspaces/${workspaceId}/pages`, {
+        pageId: cardId,
+        position: position
+      });
+      
+      console.log('Add page response:', response.data);
+      
+      if (response.data.success || response.status === 200 || response.status === 201) {
+        // Save scroll position before reload
+        const scrollPosition = window.scrollY;
+        
+        // Force reload workspace to show added page
+        console.log('Reloading workspace after adding page...');
+        await loadWorkspace();
+        console.log('Workspace reloaded successfully');
+        
+        // Restore scroll position
+        setTimeout(() => {
+          window.scrollTo(0, scrollPosition);
+        }, 100);
+      }
+    } catch (error) {
+      console.error('Failed to add card to workspace:', error);
+      setGlobalError('Failed to add page to workspace');
+    }
+  };
+
+  const handleAddFileToWorkspace = async (file: any, position: number) => {
+    try {
+      const response = await api.post(`/workspaces/${workspaceId}/files`, {
+        fileId: file.id,
+        position: position
+      });
+      
+      if (response.data.success) {
+        await loadWorkspace();
+      }
+    } catch (error) {
+      console.error('Failed to add file to workspace:', error);
+      setGlobalError('Failed to add file to workspace');
+    }
+  };
 
   useEffect(() => {
     loadWorkspace();
@@ -43,14 +191,25 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
       setIsLoading(true);
       setError(null);
       
-      // Load workspace data
+      console.log('Loading workspace:', workspaceId);
+      // Load workspace data with pages
       const workspaceResponse = await api.get(`/workspaces/${workspaceId}`);
+      console.log('Workspace response:', workspaceResponse.data);
       setWorkspace(workspaceResponse.data.workspace);
 
-      // Load workspace items (mixed cards and files)
-      const itemsResponse = await api.get(`/workspaces/${workspaceId}/cards`);
-      setWorkspaceItems(itemsResponse.data.cards || []); // Use cards property from API response
+      // Load workspace items (mixed cards and files) - use the workspace data that includes pages
+      if (workspaceResponse.data.workspace && workspaceResponse.data.workspace.pages) {
+        console.log('Using workspace pages:', workspaceResponse.data.workspace.pages.length);
+        setWorkspaceItems(workspaceResponse.data.workspace.pages);
+      } else {
+        // Fallback: try to load items separately if not included in workspace response
+        console.log('Fallback: loading cards separately');
+        const itemsResponse = await api.get(`/workspaces/${workspaceId}/cards`);
+        console.log('Cards response:', itemsResponse.data);
+        setWorkspaceItems(itemsResponse.data.cards || []);
+      }
     } catch (err: any) {
+      console.error('Error loading workspace:', err);
       const errorMessage = err.response?.data?.message || 'Failed to load workspace';
       setError(errorMessage);
       setGlobalError(errorMessage);
@@ -923,6 +1082,141 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
         </div>
       )}
       
+      {/* Command-triggered interfaces */}
+      {showCommandUpload && (
+        <div style={{ marginBottom: '80px' }}>
+          <FileUploadInterface
+            libraryId={libraryId}
+            streamId={workspaceId}
+            position={workspaceItems.length}
+            onFileUploaded={(filePage: any) => {
+              setShowCommandUpload(false);
+              loadWorkspace();
+            }}
+            onCancel={() => setShowCommandUpload(false)}
+          />
+        </div>
+      )}
+      
+      {showCommandAddPage && (
+        <div style={{ marginBottom: '80px' }}>
+          <CardSearchInterface
+            libraryId={libraryId}
+            workspaceId={workspaceId}
+            workspaceCards={workspaceItems.filter(item => item.itemType === 'card') as any}
+            onCardSelected={(card) => {
+              handleAddCardToWorkspace(card.id, workspaceItems.length);
+              setShowCommandAddPage(false);
+            }}
+            onCancel={() => setShowCommandAddPage(false)}
+          />
+        </div>
+      )}
+      
+      {showCommandAddFile && (
+        <div style={{ marginBottom: '80px' }}>
+          <FileSearchInterface
+            libraryId={libraryId}
+            workspaceId={workspaceId}
+            onFileSelected={(file: any) => {
+              handleAddFileToWorkspace(file, workspaceItems.length);
+              setShowCommandAddFile(false);
+            }}
+            onCancel={() => setShowCommandAddFile(false)}
+          />
+        </div>
+      )}
+      
+      {showCommandGenerate && (
+        <div style={{ marginBottom: '80px', padding: '20px', background: 'var(--bg-card)', border: '1px solid var(--border-medium)', borderRadius: '8px', margin: '16px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h3 style={{ margin: 0 }}>Generate Content with AI</h3>
+            {(() => {
+              const { totalPages, totalTokens } = getAIContextInfo();
+              return (
+                <div style={{ 
+                  padding: '8px 12px', 
+                  background: '#f3f4f6', 
+                  border: '1px solid #d1d5db', 
+                  borderRadius: '6px',
+                  fontSize: '12px',
+                  color: '#374151'
+                }}>
+                  <strong>AI Context:</strong> {totalPages} pages • ~{totalTokens.toLocaleString()} tokens
+                </div>
+              );
+            })()}
+          </div>
+          <textarea
+            placeholder="Enter your prompt for AI generation..."
+            style={{
+              width: '100%',
+              minHeight: '100px',
+              padding: '12px',
+              border: '1px solid var(--border-medium)',
+              borderRadius: '6px',
+              marginBottom: '12px',
+              fontFamily: 'var(--font-family)',
+              fontSize: '14px',
+              resize: 'vertical'
+            }}
+            id="command-generate-prompt"
+          />
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ display: 'block', marginBottom: '6px', fontWeight: '500' }}>Model:</label>
+            <select
+              id="command-generate-model"
+              style={{
+                padding: '8px 12px',
+                border: '1px solid var(--border-medium)',
+                borderRadius: '6px',
+                fontFamily: 'var(--font-family)',
+                fontSize: '14px',
+                background: 'var(--bg-card)',
+                minWidth: '200px'
+              }}
+              defaultValue="claude-3-5-sonnet-20241022"
+            >
+              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
+              <option value="gpt-4">GPT-4</option>
+              <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: '12px' }}>
+            <button
+              className="btn btn-primary"
+              onClick={(e) => {
+                const textarea = document.getElementById('command-generate-prompt') as HTMLTextAreaElement;
+                const modelSelect = document.getElementById('command-generate-model') as HTMLSelectElement;
+                const prompt = textarea?.value;
+                const model = modelSelect?.value || 'claude-3-5-sonnet-20241022';
+                if (prompt?.trim()) {
+                  handleGenerateCardBelow(workspaceItems.length, prompt, model);
+                  setShowCommandGenerate(false);
+                }
+              }}
+            >
+              Generate
+            </button>
+            <button
+              className="btn btn-secondary"
+              onClick={() => setShowCommandGenerate(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Command Line Interface - Fixed at bottom */}
+      <CommandLineInterface
+        onUploadFile={handleCommandUpload}
+        onNewPage={handleCommandNewPage}
+        onGenerate={handleCommandGenerate}
+        onAddPage={handleCommandAddPage}
+        onAddFile={handleCommandAddFile}
+      />
     </div>
   );
 };
