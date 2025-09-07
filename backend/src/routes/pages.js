@@ -1041,11 +1041,11 @@ router.put('/:id/update-with-title', async (req, res) => {
 
     // Refresh card data to get updated state
     const updatedCard = await Page.findById(id);
-    const pageData = await updatedPage.toJSON(true);
+    const pageData = await updatedCard.toJSON(true);
 
     res.json({
       page: pageData,
-      message: updatedPage.pageType === 'saved' ? 'Page saved to library' : 'Page updated'
+      message: updatedCard.pageType === 'saved' ? 'Page saved to library' : 'Page updated'
     });
 
   } catch (error) {

@@ -37,7 +37,7 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
   const [showCommandAddPage, setShowCommandAddPage] = useState(false);
   const [showCommandGenerate, setShowCommandGenerate] = useState(false);
   const [showCommandAddFile, setShowCommandAddFile] = useState(false);
-  const { setError: setGlobalError, aiContextPages } = useApp();
+  const { setError: setGlobalError, aiContextPages, syncAIContextFromWorkspace } = useApp();
 
   // Calculate approximate token count for AI context
   const calculateTokenCount = (text: string): number => {
@@ -69,7 +69,12 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
   };
 
   const handleCommandNewPage = async () => {
+    // Prevent double execution
+    if (isLoading) return;
+    
     try {
+      setIsLoading(true);
+      
       // Calculate position for new page
       const nextPosition = workspaceItems.length;
       
@@ -121,6 +126,8 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
     } catch (error) {
       console.error('Failed to create new page:', error);
       setGlobalError('Failed to create new page');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -134,6 +141,40 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
 
   const handleCommandAddFile = () => {
     setShowCommandAddFile(true);
+  };
+
+  const handleCommandAddForm = async () => {
+    try {
+      // Calculate position for new form
+      const nextPosition = workspaceItems.length;
+      
+      // Create new form and add to workspace in one call
+      const response = await api.post(`/workspaces/${workspaceId}/forms/create`, {
+        content: '',
+        formData: {},
+        position: nextPosition,
+        isInAIContext: false,
+        isCollapsed: false
+      });
+
+      console.log('Form creation response:', response.data);
+
+      // Save scroll position before reload
+      const scrollPosition = window.scrollY;
+      
+      // Reload workspace to show new form
+      await loadWorkspace();
+      
+      // Restore scroll position
+      setTimeout(() => {
+        window.scrollTo(0, scrollPosition);
+      }, 100);
+      
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.error || 'Failed to create form';
+      setGlobalError(errorMessage);
+      console.error('Form creation error:', err);
+    }
   };
 
   // Add missing functions for command interface
@@ -161,9 +202,15 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
           window.scrollTo(0, scrollPosition);
         }, 100);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to add card to workspace:', error);
-      setGlobalError('Failed to add page to workspace');
+      
+      // Handle duplicate page error specifically
+      if (error.response?.data?.message?.includes('already exists')) {
+        setGlobalError('This page is already in this workspace');
+      } else {
+        setGlobalError('Failed to add page to workspace');
+      }
     }
   };
 
@@ -184,7 +231,19 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
   };
 
   useEffect(() => {
-    loadWorkspace();
+    let mounted = true;
+    
+    const loadData = async () => {
+      if (mounted) {
+        await loadWorkspace();
+      }
+    };
+    
+    loadData();
+    
+    return () => {
+      mounted = false;
+    };
   }, [workspaceId]);
 
   const loadWorkspace = async () => {
@@ -214,6 +273,9 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
         console.log('Total workspace items:', allItems.length);
         
         setWorkspaceItems(allItems);
+        
+        // Sync AI context state with backend data
+        syncAIContextFromWorkspace(allItems);
         
         // Check for form-generated page to auto-stream
         const formGeneratedPageId = (window as any).formGeneratedPageId;
@@ -296,6 +358,9 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
       try {
         await api.put(`/pages/${cardId}`, updates);
         // Server updated successfully, optimistic update was correct
+        
+        // Sync AI context state after successful update
+        syncAIContextFromWorkspace(newWorkspaceItems);
       } catch (serverError) {
         // Revert optimistic update on server error
         setWorkspaceItems(originalWorkspaceItems);
@@ -781,6 +846,67 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
     setActiveCardIdForFileAdd(null);
   };
 
+  // Form handling functions
+  const handleRemoveForm = async (formId: string) => {
+    try {
+      // Optimistically remove from UI immediately
+      const updatedItems = workspaceItems.filter(item => 
+        !(item.itemType === 'form' && item.id === formId)
+      );
+      setWorkspaceItems(updatedItems);
+      
+      // Update server in background
+      await api.delete(`/workspaces/${workspaceId}/forms/${formId}`);
+    } catch (err: any) {
+      // If server request fails, reload workspace to get correct state
+      const errorMessage = err.response?.data?.message || 'Failed to remove form';
+      setGlobalError(errorMessage);
+      await loadWorkspace();
+    }
+  };
+
+  const handleToggleFormAI = async (formId: string) => {
+    try {
+      // Find the form and toggle its AI context state optimistically
+      const updatedItems = workspaceItems.map(item => {
+        if (item.itemType === 'form' && item.id === formId) {
+          return { ...item, isInAIContext: !item.isInAIContext };
+        }
+        return item;
+      });
+      setWorkspaceItems(updatedItems);
+      
+      // Update server in background
+      await api.put(`/workspaces/${workspaceId}/forms/${formId}/ai-context`);
+    } catch (err: any) {
+      // If server request fails, reload workspace to get correct state
+      const errorMessage = err.response?.data?.message || 'Failed to toggle AI context';
+      setGlobalError(errorMessage);
+      await loadWorkspace();
+    }
+  };
+
+  const handleToggleFormCollapse = async (formId: string) => {
+    try {
+      // Find the form and toggle its collapse state optimistically
+      const updatedItems = workspaceItems.map(item => {
+        if (item.itemType === 'form' && item.id === formId) {
+          return { ...item, isCollapsed: !item.isCollapsed };
+        }
+        return item;
+      });
+      setWorkspaceItems(updatedItems);
+      
+      // Update server in background
+      await api.put(`/workspaces/${workspaceId}/forms/${formId}/collapsed`);
+    } catch (err: any) {
+      // If server request fails, reload workspace to get correct state
+      const errorMessage = err.response?.data?.message || 'Failed to toggle collapse';
+      setGlobalError(errorMessage);
+      await loadWorkspace();
+    }
+  };
+
   // File handling functions
   const handleDeleteFile = async (fileId: string) => {
     try {
@@ -970,9 +1096,9 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
               key={itemId}
               form={item}
               workspaceId={workspaceId}
-              onRemove={() => {}}
-              onToggleAI={() => {}}
-              onToggleCollapse={() => {}}
+              onRemove={handleRemoveForm}
+              onToggleAI={handleToggleFormAI}
+              onToggleCollapse={handleToggleFormCollapse}
               showAddInterface={false}
               onShowAddInterface={() => {}}
               onWorkspaceUpdate={loadWorkspace}
@@ -982,7 +1108,7 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
           // Render card
           return (
             <Page
-              key={`card-${itemId}-${activeCardIdForAdd}`}
+              key={`card-${itemId}-${item.position || index}`}
               page={item as any}
               workspacePage={item as any}  
               workspaceId={workspaceId}
@@ -1285,7 +1411,7 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
         onGenerate={handleCommandGenerate}
         onAddPage={handleCommandAddPage}
         onAddFile={handleCommandAddFile}
-        onAddForm={() => {}}
+        onAddForm={handleCommandAddForm}
       />
     </div>
   );

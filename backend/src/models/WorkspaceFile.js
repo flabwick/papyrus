@@ -185,6 +185,10 @@ class WorkspaceFile {
         null as form_id
       FROM pages p
       WHERE p.workspace_specific_id = $1 AND p.is_active = true
+        AND NOT EXISTS (
+          SELECT 1 FROM workspace_pages wp 
+          WHERE wp.workspace_id = $1 AND wp.page_id = p.id
+        )
     `, [workspaceId]);
 
     // Get files from workspace

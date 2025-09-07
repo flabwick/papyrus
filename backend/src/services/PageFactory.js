@@ -228,13 +228,14 @@ class PageFactory {
    */
   static async addPageToStreamSafely(streamId, pageId, position = null) {
     return await transaction(async (client) => {
-      // Check if page is already in workspace
+      // Check if page is already in workspace (with lock to prevent race conditions)
       const existing = await client.query(
-        'SELECT id FROM workspace_pages WHERE workspace_id = $1 AND page_id = $2',
+        'SELECT id FROM workspace_pages WHERE workspace_id = $1 AND page_id = $2 FOR UPDATE',
         [streamId, pageId]
       );
 
       if (existing.rows.length > 0) {
+        console.log(`⚠️  Page ${pageId} already exists in workspace ${streamId}, skipping`);
         return; // Page already in stream
       }
 
@@ -252,9 +253,6 @@ class PageFactory {
           [streamId]
         );
 
-        // Create a temporary table approach
-        await client.query('BEGIN');
-        
         // Temporarily set all positions to negative values to avoid conflicts
         await client.query(
           'UPDATE workspace_pages SET position = -position - 1000 WHERE workspace_id = $1',
@@ -275,13 +273,21 @@ class PageFactory {
         }
       }
       
-      // Insert the new page
-      await client.query(`
-        INSERT INTO workspace_pages (workspace_id, page_id, position, is_in_ai_context, is_collapsed)
-        VALUES ($1, $2, $3, false, false)
-      `, [streamId, pageId, position]);
-      
-      console.log(`✅ Added page ${pageId} to stream ${streamId} at position ${position}`);
+      // Insert the new page with constraint violation handling
+      try {
+        await client.query(`
+          INSERT INTO workspace_pages (workspace_id, page_id, position, is_in_ai_context, is_collapsed)
+          VALUES ($1, $2, $3, true, false)
+        `, [streamId, pageId, position]);
+        
+        console.log(`✅ Added page ${pageId} to stream ${streamId} at position ${position}`);
+      } catch (error) {
+        if (error.code === '23505') { // Unique constraint violation
+          console.log(`⚠️  Page ${pageId} already exists in workspace ${streamId} (constraint violation), skipping`);
+          return;
+        }
+        throw error;
+      }
     });
   }
 
@@ -344,13 +350,21 @@ class PageFactory {
         position = maxPositionResult.rows[0].next_position;
       }
       
-      // Insert the new page
-      await client.query(`
-        INSERT INTO workspace_pages (workspace_id, page_id, position, is_in_ai_context, is_collapsed)
-        VALUES ($1, $2, $3, false, false)
-      `, [streamId, pageId, position]);
-      
-      console.log(`✅ Added page ${pageId} to stream ${streamId} at position ${position}`);
+      // Insert the new page with constraint violation handling
+      try {
+        await client.query(`
+          INSERT INTO workspace_pages (workspace_id, page_id, position, is_in_ai_context, is_collapsed)
+          VALUES ($1, $2, $3, true, false)
+        `, [streamId, pageId, position]);
+        
+        console.log(`✅ Added page ${pageId} to stream ${streamId} at position ${position}`);
+      } catch (error) {
+        if (error.code === '23505') { // Unique constraint violation
+          console.log(`⚠️  Page ${pageId} already exists in workspace ${streamId} (constraint violation), skipping`);
+          return;
+        }
+        throw error;
+      }
     });
   }
 

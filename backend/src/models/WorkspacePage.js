@@ -28,7 +28,7 @@ class WorkspacePage {
    * @returns {Promise<WorkspacePage>} - Created WorkspacePage instance
    */
   static async addPageToWorkspace(workspaceId, pageId, position = null, depth = 0, options = {}) {
-    const { isInAIContext = false, isCollapsed = false } = options;
+    const { isInAIContext = true, isCollapsed = false } = options;
 
     return await transaction(async (client) => {
       // Verify workspace exists

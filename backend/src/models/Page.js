@@ -504,8 +504,9 @@ class Page {
    * @returns {boolean}
    */
   canBeInAIContext() {
-    // All page types can be used in AI context if they have content
-    return this.isActive && (this.contentPreview || this.hasTitle());
+    // All active pages can be used in AI context regardless of content
+    // Users should be able to toggle AI context on/off at any time
+    return this.isActive;
   }
 
   /**
@@ -564,6 +565,9 @@ class Page {
     const { deleteFile = false } = options;
 
     await transaction(async (client) => {
+      // Remove from all workspaces first
+      await client.query('DELETE FROM workspace_pages WHERE page_id = $1', [this.id]);
+
       // Mark page as inactive
       await client.query(
         'UPDATE pages SET is_active = false, updated_at = CURRENT_TIMESTAMP WHERE id = $1',

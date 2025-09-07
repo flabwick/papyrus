@@ -26,15 +26,13 @@ const FormCard: React.FC<FormCardProps> = ({
 }) => {
   const [isExpanded, setIsExpanded] = useState(!form.isCollapsed);
   const [isEditing, setIsEditing] = useState(false);
-  const [editedTitle, setEditedTitle] = useState(form.title || 'Untitled Form');
   const [editedContent, setEditedContent] = useState(form.content || '');
 
   // Update edited content when form content changes (e.g., on refresh)
   useEffect(() => {
     console.log('Form content changed:', form.content);
     setEditedContent(form.content || '');
-    setEditedTitle(form.title || 'Untitled Form');
-  }, [form.content, form.title]);
+  }, [form.content]);
   const [isSaving, setIsSaving] = useState(false);
   const [localShowAddInterface, setLocalShowAddInterface] = useState(showAddInterface);
   const { setError } = useApp();
@@ -45,24 +43,17 @@ const FormCard: React.FC<FormCardProps> = ({
   }, [showAddInterface]);
 
   const handleSave = async () => {
-    if (!editedTitle.trim()) {
-      setError('Form title cannot be empty');
-      return;
-    }
-
     setIsSaving(true);
     try {
       console.log('Saving form with content:', editedContent);
       
       const response = await api.put(`/forms/form/${form.id}`, {
-        title: editedTitle.trim(),
         content: editedContent
       });
 
       console.log('Form save response:', response.data);
 
       // Update local state
-      form.title = editedTitle.trim();
       form.content = editedContent;
       setIsEditing(false);
       
@@ -81,7 +72,6 @@ const FormCard: React.FC<FormCardProps> = ({
   };
 
   const handleCancel = () => {
-    setEditedTitle(form.title || 'Untitled Form');
     setEditedContent(form.content || '');
     setIsEditing(false);
   };
@@ -91,6 +81,7 @@ const FormCard: React.FC<FormCardProps> = ({
       onRemove(form.id);
     }
   };
+
 
   const handleToggleAI = async () => {
     try {
@@ -124,7 +115,7 @@ const FormCard: React.FC<FormCardProps> = ({
   return (
     <div className="form-card">
       <div className="form-header">
-        <div className="form-title-section">
+        <div className="form-controls">
           <button
             className="expand-collapse-btn"
             onClick={handleToggleCollapse}
@@ -132,32 +123,6 @@ const FormCard: React.FC<FormCardProps> = ({
           >
             {isExpanded ? '▼' : '▶'}
           </button>
-          
-          {isEditing ? (
-            <input
-              type="text"
-              value={editedTitle}
-              onChange={(e) => setEditedTitle(e.target.value)}
-              className="form-title-input"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  handleSave();
-                } else if (e.key === 'Escape') {
-                  handleCancel();
-                }
-              }}
-              autoFocus
-            />
-          ) : (
-            <h3 
-              className="form-title"
-              onClick={() => setIsEditing(true)}
-              title="Click to edit title"
-            >
-              {form.title || 'Untitled Form'}
-            </h3>
-          )}
-          
           <span className="form-type-badge">Form</span>
         </div>
 

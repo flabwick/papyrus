@@ -593,6 +593,11 @@ router.delete('/:id/pages/:pageId', async (req, res) => {
       console.log('🗑️ Deleting untitled page:', pageId);
       await page.delete();
       res.json({ message: 'Untitled page deleted successfully' });
+    } else if (page && !page.title) {
+      // This is an empty page without title - also delete completely
+      console.log('🗑️ Deleting empty page:', pageId);
+      await page.delete();
+      res.json({ message: 'Empty page deleted successfully' });
     } else {
       // This is a titled page - remove from workspace
       await WorkspacePage.removePageFromWorkspace(workspaceId, pageId);

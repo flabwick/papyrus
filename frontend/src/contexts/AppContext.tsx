@@ -6,6 +6,7 @@ interface AppContextType extends AppState {
   setWorkspace: (workspace: Workspace | null) => void;
   toggleAIContext: (pageId: string) => void;
   clearAIContext: () => void;
+  syncAIContextFromWorkspace: (workspaceItems: any[]) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
 }
@@ -25,6 +26,7 @@ type AppAction =
   | { type: 'SET_WORKSPACE'; payload: Workspace | null }
   | { type: 'TOGGLE_AI_CONTEXT'; payload: string }
   | { type: 'CLEAR_AI_CONTEXT' }
+  | { type: 'SYNC_AI_CONTEXT_FROM_WORKSPACE'; payload: string[] }
   | { type: 'SET_LOADING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string | null };
 
@@ -62,6 +64,11 @@ const appReducer = (state: AppState, action: AppAction): AppState => {
       return {
         ...state,
         aiContextPages: [],
+      };
+    case 'SYNC_AI_CONTEXT_FROM_WORKSPACE':
+      return {
+        ...state,
+        aiContextPages: action.payload,
       };
     case 'SET_LOADING':
       return {
@@ -101,6 +108,14 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     dispatch({ type: 'CLEAR_AI_CONTEXT' });
   };
 
+  const syncAIContextFromWorkspace = (workspaceItems: any[]) => {
+    // Extract page IDs that have isInAIContext: true
+    const aiContextPageIds = workspaceItems
+      .filter(item => item.itemType === 'card' && item.isInAIContext)
+      .map(item => item.id);
+    dispatch({ type: 'SYNC_AI_CONTEXT_FROM_WORKSPACE', payload: aiContextPageIds });
+  };
+
   const setLoading = (loading: boolean) => {
     dispatch({ type: 'SET_LOADING', payload: loading });
   };
@@ -115,6 +130,7 @@ export const AppProvider: React.FC<AppProviderProps> = ({ children }) => {
     setWorkspace,
     toggleAIContext,
     clearAIContext,
+    syncAIContextFromWorkspace,
     setLoading,
     setError,
   };

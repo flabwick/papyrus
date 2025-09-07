@@ -28,7 +28,7 @@ class WorkspaceForm {
    * @returns {Promise<WorkspaceForm>} - Created WorkspaceForm instance
    */
   static async addFormToWorkspace(workspaceId, formId, position = null, depth = 0, options = {}) {
-    const { isInAIContext = false, isCollapsed = false } = options;
+    const { isInAIContext = true, isCollapsed = false } = options;
 
     return await transaction(async (client) => {
       // Verify workspace exists

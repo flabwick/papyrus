@@ -109,10 +109,17 @@ const CommandLineInterface: React.FC<CommandLineInterfaceProps> = ({
 
   const handleSubmit = () => {
     const command = input.trim().split(' ')[0].toLowerCase();
-    const matchedCommand = commands.find(cmd => cmd.name === command);
+    const exactMatch = commands.find(cmd => cmd.name === command);
     
-    if (matchedCommand) {
-      matchedCommand.action();
+    if (exactMatch) {
+      // Execute exact match
+      exactMatch.action();
+      setInput('');
+      setShowSuggestions(false);
+    } else if (filteredCommands.length > 0 && input.startsWith('/')) {
+      // Auto-complete to the most likely command (first in filtered list)
+      const autoCompleteCommand = filteredCommands[selectedSuggestion] || filteredCommands[0];
+      autoCompleteCommand.action();
       setInput('');
       setShowSuggestions(false);
     } else if (input.trim()) {

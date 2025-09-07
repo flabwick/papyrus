@@ -101,7 +101,7 @@ class WorkspaceManager {
   static async addPageToWorkspace(workspaceId, pageId, options = {}) {
     try {
       const { query } = require('../models/database');
-      const { position, depth = 0, isInAIContext = false, isCollapsed = false } = options;
+      const { position, depth = 0, isInAIContext = true, isCollapsed = false } = options;
       
       // Check if the page already exists in this workspace
       const checkResult = await query(
