@@ -1,6 +1,6 @@
 require('dotenv').config(); // Load environment variables first
 
-const app = require('./src/app-working');
+const app = require('./src/app');
 const { healthCheck, closePool } = require('./src/models/database');
 const fileWatcher = require('./src/services/fileWatcher');
 
