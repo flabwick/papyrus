@@ -9,6 +9,7 @@ const { processMarkdownFile, validateMarkdownFile } = require('../utils/fileProc
 const { processTextFile, validateTextFile } = require('../utils/fileProcessors/textProcessor');
 const { processPdfFile, validatePdfFile } = require('../utils/fileProcessors/pdfProcessor');
 const { processEpubFile, validateEpubFile } = require('../utils/fileProcessors/epubProcessor');
+const { processImageFile, validateImageFile } = require('../utils/fileProcessors/imageProcessor');
 
 /**
  * Page Processing Service
@@ -24,7 +25,10 @@ class PageProcessor {
       ['.text', { process: processTextFile, validate: validateTextFile, type: 'text' }],
       ['.log', { process: processTextFile, validate: validateTextFile, type: 'text' }],
       ['.pdf', { process: processPdfFile, validate: validatePdfFile, type: 'pdf' }],
-      ['.epub', { process: processEpubFile, validate: validateEpubFile, type: 'epub' }]
+      ['.epub', { process: processEpubFile, validate: validateEpubFile, type: 'epub' }],
+      ['.jpg', { process: processImageFile, validate: validateImageFile, type: 'image' }],
+      ['.jpeg', { process: processImageFile, validate: validateImageFile, type: 'image' }],
+      ['.png', { process: processImageFile, validate: validateImageFile, type: 'image' }]
     ]);
   }
 
@@ -91,6 +95,7 @@ class PageProcessor {
         return path.join(libraryFolderPath, 'pages');
       case 'pdf':
       case 'epub':
+      case 'image':
       default:
         return path.join(libraryFolderPath, 'files');
     }

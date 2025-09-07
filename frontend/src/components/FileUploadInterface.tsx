@@ -32,14 +32,17 @@ const FileUploadInterface: React.FC<FileUploadInterfaceProps> = ({
 
   const supportedTypes = [
     'application/pdf',
-    'application/epub+zip'
+    'application/epub+zip',
+    'image/jpeg',
+    'image/jpg',
+    'image/png'
   ];
 
   const maxFileSize = 100 * 1024 * 1024; // 100MB
 
   const validateFile = (file: File): string | null => {
     if (!supportedTypes.includes(file.type)) {
-      return `Unsupported file type: ${file.type}. Only PDF and EPUB files are supported.`;
+      return `Unsupported file type: ${file.type}. Only PDF, EPUB, and image files (JPEG, PNG) are supported.`;
     }
     
     if (file.size > maxFileSize) {
@@ -115,12 +118,22 @@ const FileUploadInterface: React.FC<FileUploadInterfaceProps> = ({
         console.log(`📝 File card renamed: "${originalTitle}" → "${finalTitle}"`);
       }
 
+      // Determine file type
+      let fileType = 'unknown';
+      if (file.type.includes('pdf')) {
+        fileType = 'pdf';
+      } else if (file.type.includes('epub')) {
+        fileType = 'epub';
+      } else if (file.type.includes('image')) {
+        fileType = 'image';
+      }
+
       // Notify parent component
       setTimeout(() => {
         onFileUploaded({
           id: cardId,
           fileName,
-          fileType: file.type.includes('pdf') ? 'pdf' : 'epub',
+          fileType,
           fileSize: file.size,
           finalTitle,
           wasRenamed
@@ -203,6 +216,7 @@ const FileUploadInterface: React.FC<FileUploadInterfaceProps> = ({
   const getFileIcon = (file: File): string => {
     if (file.type === 'application/pdf') return '📄';
     if (file.type === 'application/epub+zip') return '📚';
+    if (file.type.startsWith('image/')) return '🖼️';
     return '📁';
   };
 
@@ -258,13 +272,13 @@ const FileUploadInterface: React.FC<FileUploadInterfaceProps> = ({
           {dragOver ? '📤' : '📁'}
         </div>
         <h3 style={{ margin: '0 0 8px 0', color: '#374151' }}>
-          {dragOver ? 'Drop files here' : 'Upload PDF or EPUB files'}
+          {dragOver ? 'Drop files here' : 'Upload PDF, EPUB, or Image files'}
         </h3>
         <p style={{ margin: '0 0 16px 0', color: '#6b7280', fontSize: '14px' }}>
           Drag and drop files here, or click to select files
         </p>
         <p style={{ margin: '0', color: '#9ca3af', fontSize: '12px' }}>
-          Supported: PDF, EPUB • Maximum size: 100MB per file
+          Supported: PDF, EPUB, JPEG, PNG • Maximum size: 100MB per file
         </p>
       </div>
 
@@ -273,7 +287,7 @@ const FileUploadInterface: React.FC<FileUploadInterfaceProps> = ({
         ref={fileInputRef}
         type="file"
         multiple
-        accept=".pdf,.epub,application/pdf,application/epub+zip"
+        accept=".pdf,.epub,.jpg,.jpeg,.png,application/pdf,application/epub+zip,image/jpeg,image/png"
         onChange={handleFileInput}
         style={{ display: 'none' }}
       />

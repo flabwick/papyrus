@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import api from '../services/api';
 
@@ -51,6 +51,29 @@ const FileViewer: React.FC<FileViewerProps> = ({
     };
   }, []);
 
+  const loadPdfDocument = async () => {
+    console.log('Starting PDF load for file:', file.id);
+    
+    try {
+      const response = await api.get(`/pages/files/${file.id}/download`, {
+        responseType: 'arraybuffer'
+      });
+      
+      console.log('PDF downloaded successfully, creating blob URL');
+      
+      const arrayBuffer = response.data;
+      const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
+      const url = URL.createObjectURL(blob);
+      
+      console.log('Created blob URL:', url);
+      setPdfUrl(url);
+      console.log('Set pdfUrl to:', url);
+      
+    } catch (err) {
+      console.error('Failed to load PDF:', err);
+    }
+  };
+
   // PDF loading effect
   useEffect(() => {
     console.log('PDF loading effect - file object:', {
@@ -78,29 +101,6 @@ const FileViewer: React.FC<FileViewerProps> = ({
       });
     }
   }, [file?.id, isExpanded, pdfUrl]);
-
-  const loadPdfDocument = async () => {
-    console.log('Starting PDF load for file:', file.id);
-    
-    try {
-      const response = await api.get(`/pages/files/${file.id}/download`, {
-        responseType: 'arraybuffer'
-      });
-      
-      console.log('PDF downloaded successfully, creating blob URL');
-      
-      const arrayBuffer = response.data;
-      const blob = new Blob([arrayBuffer], { type: 'application/pdf' });
-      const url = URL.createObjectURL(blob);
-      
-      console.log('Created blob URL:', url);
-      setPdfUrl(url);
-      console.log('Set pdfUrl to:', url);
-      
-    } catch (err) {
-      console.error('Failed to load PDF:', err);
-    }
-  };
 
   // Debug FileViewer render
   console.log('FileViewer render - file type:', file?.file_type || file?.fileType);
@@ -140,6 +140,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
     switch (file.fileType) {
       case 'pdf': return '📄';
       case 'epub': return '📚';
+      case 'image': return '🖼️';
       default: return '📁';
     }
   };
@@ -148,6 +149,7 @@ const FileViewer: React.FC<FileViewerProps> = ({
     switch (file.fileType) {
       case 'pdf': return '#dc2626'; // red
       case 'epub': return '#8b5cf6'; // purple
+      case 'image': return '#059669'; // green
       default: return '#6b7280'; // gray
     }
   };
@@ -247,6 +249,9 @@ const FileViewer: React.FC<FileViewerProps> = ({
             });
             return <PDFViewer file={file} pdfUrl={pdfUrl} setPdfUrl={setPdfUrl} />;
           })()}
+          {file.fileType === 'image' && (
+            <ImageViewer file={file} />
+          )}
         </div>
       )}
 
@@ -595,6 +600,209 @@ const PDFViewer: React.FC<{
             </div>
           )}
         </Document>
+      </div>
+    </div>
+  );
+};
+
+// Image Viewer Component
+const ImageViewer: React.FC<{ file: any }> = ({ file }) => {
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  };
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [imageInfo, setImageInfo] = useState<any>(null);
+  const [zoom, setZoom] = useState<number>(1);
+  const [fitMode, setFitMode] = useState<'actual' | 'fit-width' | 'fit-screen'>('fit-width');
+
+  useEffect(() => {
+    const loadImage = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const response = await api.get(`/pages/files/${file.id}/download`, {
+          responseType: 'blob'
+        });
+
+        const blob = new Blob([response.data]);
+        const url = URL.createObjectURL(blob);
+        setImageUrl(url);
+
+        // Extract image info from file metadata if available
+        if (file.metadata) {
+          setImageInfo({
+            width: file.metadata.width,
+            height: file.metadata.height,
+            format: file.metadata.format,
+            size: file.fileSize,
+            colorSpace: file.metadata.colorSpace,
+            hasAlpha: file.metadata.hasAlpha
+          });
+        }
+
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Failed to load image:', err);
+        setError('Failed to load image');
+        setIsLoading(false);
+      }
+    };
+
+    loadImage();
+  }, [file.id, file.fileSize, file.metadata]);
+
+  // Separate cleanup effect for blob URL
+  useEffect(() => {
+    return () => {
+      if (imageUrl && imageUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(imageUrl);
+      }
+    };
+  }, [imageUrl]);
+
+  const handleZoomIn = () => setZoom(prev => Math.min(prev * 1.25, 5));
+  const handleZoomOut = () => setZoom(prev => Math.max(prev / 1.25, 0.1));
+  const handleResetZoom = () => setZoom(1);
+
+  const getImageStyle = () => {
+    const baseStyle: React.CSSProperties = {
+      transition: 'transform 0.2s ease',
+      cursor: zoom > 1 ? 'grab' : 'default'
+    };
+
+    switch (fitMode) {
+      case 'actual':
+        return { ...baseStyle, transform: `scale(${zoom})`, maxWidth: 'none', maxHeight: 'none' };
+      case 'fit-width':
+        return { ...baseStyle, transform: `scale(${zoom})`, maxWidth: '100%', height: 'auto' };
+      case 'fit-screen':
+        return { ...baseStyle, transform: `scale(${zoom})`, maxWidth: '100%', maxHeight: '70vh', objectFit: 'contain' as const };
+      default:
+        return baseStyle;
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="image-loading">
+        <div className="loading-spinner">🖼️</div>
+        <p>Loading image...</p>
+      </div>
+    );
+  }
+
+  if (error || !imageUrl) {
+    return (
+      <div className="image-error">
+        <div className="error-content">
+          <h3>❌ Failed to load image</h3>
+          <p>{error || 'Unknown error occurred'}</p>
+          <button 
+            className="retry-btn"
+            onClick={() => window.location.reload()}
+          >
+            🔄 Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="image-viewer">
+      {/* Image Controls */}
+      <div className="image-controls">
+        <div className="image-zoom-controls">
+          <button onClick={handleZoomOut} className="image-btn" disabled={zoom <= 0.1}>
+            🔍−
+          </button>
+          <span className="image-zoom-level">{Math.round(zoom * 100)}%</span>
+          <button onClick={handleZoomIn} className="image-btn" disabled={zoom >= 5}>
+            🔍+
+          </button>
+          <button onClick={handleResetZoom} className="image-btn">
+            Reset
+          </button>
+        </div>
+
+        <div className="image-fit-controls">
+          <button 
+            onClick={() => setFitMode('actual')}
+            className={`image-btn ${fitMode === 'actual' ? 'active' : ''}`}
+          >
+            Actual Size
+          </button>
+          <button 
+            onClick={() => setFitMode('fit-width')}
+            className={`image-btn ${fitMode === 'fit-width' ? 'active' : ''}`}
+          >
+            Fit Width
+          </button>
+          <button 
+            onClick={() => setFitMode('fit-screen')}
+            className={`image-btn ${fitMode === 'fit-screen' ? 'active' : ''}`}
+          >
+            Fit Screen
+          </button>
+        </div>
+      </div>
+
+      {/* Image Display */}
+      <div className="image-display-container">
+        <div className="image-wrapper" style={{ overflow: zoom > 1 ? 'auto' : 'hidden' }}>
+          <img
+            src={imageUrl}
+            alt={file.title || file.fileName}
+            style={getImageStyle()}
+            className="main-image"
+            draggable={false}
+          />
+        </div>
+      </div>
+
+      {/* Image Information */}
+      <div className="image-info-panel">
+        <div className="image-metadata">
+          <h4>Image Details</h4>
+          <div className="metadata-grid">
+            {imageInfo && (
+              <>
+                <div className="metadata-row">
+                  <span className="metadata-label">Dimensions:</span>
+                  <span className="metadata-value">{imageInfo.width} × {imageInfo.height} pixels</span>
+                </div>
+                <div className="metadata-row">
+                  <span className="metadata-label">Format:</span>
+                  <span className="metadata-value">{imageInfo.format?.toUpperCase() || 'Unknown'}</span>
+                </div>
+                <div className="metadata-row">
+                  <span className="metadata-label">File Size:</span>
+                  <span className="metadata-value">{formatFileSize(imageInfo.size)}</span>
+                </div>
+                {imageInfo.colorSpace && (
+                  <div className="metadata-row">
+                    <span className="metadata-label">Color Space:</span>
+                    <span className="metadata-value">{imageInfo.colorSpace}</span>
+                  </div>
+                )}
+                {imageInfo.hasAlpha && (
+                  <div className="metadata-row">
+                    <span className="metadata-label">Transparency:</span>
+                    <span className="metadata-value">Yes</span>
+                  </div>
+                )}
+              </>
+            )}
+            <div className="metadata-row">
+              <span className="metadata-label">Filename:</span>
+              <span className="metadata-value">{file.fileName}</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -1138,7 +1138,7 @@ router.post('/check-file-duplicates', async (req, res) => {
 
 /**
  * POST /api/pages/upload-file
- * Upload PDF/EPUB files and create file cards with stream positioning
+ * Upload PDF/EPUB/Image files and create file cards with stream positioning
  */
 router.post('/upload-file', upload.single('file'), async (req, res) => {
   try {
@@ -1159,17 +1159,17 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
     if (!req.file) {
       return res.status(400).json({
         error: 'No file uploaded',
-        message: 'A PDF or EPUB file must be uploaded'
+        message: 'A PDF, EPUB, or image file must be uploaded'
       });
     }
 
     // Validate file type
     const fileExt = path.extname(req.file.originalname).toLowerCase();
-    if (!['.pdf', '.epub'].includes(fileExt)) {
+    if (!['.pdf', '.epub', '.jpg', '.jpeg', '.png'].includes(fileExt)) {
       await fs.remove(req.file.path).catch(() => {});
       return res.status(400).json({
         error: 'Unsupported file type',
-        message: 'Only PDF and EPUB files are supported'
+        message: 'Only PDF, EPUB, and image files (JPEG, PNG) are supported'
       });
     }
 
@@ -1205,6 +1205,11 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
         processResult = await epubProcessor.processEpubFile(tempFilePath, {
           title: path.basename(req.file.originalname, '.epub'),
           filesDir: filesDir
+        });
+      } else if (['.jpg', '.jpeg', '.png'].includes(fileExt)) {
+        const { processImageFile } = require('../utils/fileProcessors/imageProcessor');
+        processResult = await processImageFile(tempFilePath, {
+          title: path.basename(req.file.originalname, fileExt)
         });
       }
       console.log(`Successfully processed file, got result:`, {
@@ -1302,6 +1307,24 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
           'complete',
           processResult.epubInfo?.coverImagePath || null
         ];
+      } else if (['.jpg', '.jpeg', '.png'].includes(fileExt)) {
+        // Handle image files
+        fileInsertQuery = `
+          INSERT INTO files (
+            library_id, file_name, file_type, file_size, file_path, 
+            content_preview, processing_status
+          ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+          RETURNING *
+        `;
+        fileInsertParams = [
+          libraryId,
+          path.basename(actualFinalPath),
+          'image',
+          processResult.processingInfo.metadata.size,
+          actualFinalPath,
+          processResult.title,
+          'complete'
+        ];
       }
       
       console.log('Inserting file record:', { 
@@ -1318,22 +1341,39 @@ router.post('/upload-file', upload.single('file'), async (req, res) => {
         await WorkspaceFile.addFileToWorkspace(workspaceId, fileRecord.rows[0].id, parseInt(position) + 1);
       }
       
+      // Prepare response data based on file type
+      let fileSize, title, author, description;
+      
+      if (['.jpg', '.jpeg', '.png'].includes(fileExt)) {
+        // Image file response
+        fileSize = processResult.processingInfo.metadata.size;
+        title = processResult.title;
+        author = null;
+        description = null;
+      } else {
+        // PDF/EPUB file response
+        fileSize = processResult.fileInfo.size;
+        title = processResult.fileInfo.title || processResult.title;
+        author = processResult.fileInfo.author;
+        description = processResult.metadata.contentPreview;
+      }
+
       res.status(201).json({
         success: true,
         data: {
           fileId: fileRecord.rows[0].id,
           fileName: path.basename(actualFinalPath),
           fileType: fileExt.substring(1),
-          fileSize: processResult.fileInfo.size,
+          fileSize: fileSize,
           file: {
             id: fileRecord.rows[0].id,
             fileName: path.basename(actualFinalPath),
             fileType: fileExt.substring(1),
-            fileSize: processResult.fileInfo.size,
+            fileSize: fileSize,
             filePath: actualFinalPath,
-            title: processResult.fileInfo.title || processResult.title,
-            author: processResult.fileInfo.author,
-            description: processResult.metadata.contentPreview,
+            title: title,
+            author: author,
+            description: description,
             processingStatus: 'complete'
           }
         },
@@ -1522,10 +1562,24 @@ router.get('/files/:id/content', async (req, res) => {
     // Set appropriate content type and headers
     const mimeTypes = {
       pdf: 'application/pdf',
-      epub: 'application/epub+zip'
+      epub: 'application/epub+zip',
+      image: 'image/jpeg' // Default for image type, will be overridden below
     };
 
-    res.setHeader('Content-Type', mimeTypes[fileRecord.file_type] || 'application/octet-stream');
+    let contentType = mimeTypes[fileRecord.file_type] || 'application/octet-stream';
+    
+    // For image files, determine specific MIME type from file extension
+    if (fileRecord.file_type === 'image') {
+      const ext = path.extname(fileRecord.file_name).toLowerCase();
+      const imageMimeTypes = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png'
+      };
+      contentType = imageMimeTypes[ext] || 'image/jpeg';
+    }
+
+    res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `inline; filename="${fileRecord.file_name}"`);
     
     // Stream file content
@@ -1588,10 +1642,24 @@ router.get('/files/:id/download', async (req, res) => {
     // Set download headers
     const mimeTypes = {
       pdf: 'application/pdf',
-      epub: 'application/epub+zip'
+      epub: 'application/epub+zip',
+      image: 'image/jpeg' // Default for image type, will be overridden below
     };
 
-    res.setHeader('Content-Type', mimeTypes[fileRecord.file_type] || 'application/octet-stream');
+    let contentType = mimeTypes[fileRecord.file_type] || 'application/octet-stream';
+    
+    // For image files, determine specific MIME type from file extension
+    if (fileRecord.file_type === 'image') {
+      const ext = path.extname(fileRecord.file_name).toLowerCase();
+      const imageMimeTypes = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png'
+      };
+      contentType = imageMimeTypes[ext] || 'image/jpeg';
+    }
+
+    res.setHeader('Content-Type', contentType);
     res.setHeader('Content-Disposition', `attachment; filename="${fileRecord.file_name}"`);
     
     // Stream file for download
