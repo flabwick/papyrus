@@ -25,9 +25,9 @@ class WorkspaceManager {
   }
 
   /**
-   * Get a workspace with its pages
+   * Get a workspace with its pages and files
    * @param {string} workspaceId - Workspace ID
-   * @returns {Promise<Object>} - Workspace with pages
+   * @returns {Promise<Object>} - Workspace with pages and files
    */
   static async getWorkspaceWithPages(workspaceId) {
     try {
@@ -36,12 +36,18 @@ class WorkspaceManager {
         throw new Error('Workspace not found');
       }
 
-      // Get pages for this workspace
-      const pages = await workspace.getPages();
+      // Get mixed workspace items (both pages and files) in position order
+      const WorkspaceFile = require('../models/WorkspaceFile');
+      const items = await WorkspaceFile.getWorkspaceItems(workspaceId);
+      
+      // For backwards compatibility, separate pages and files
+      const pages = items.filter(item => item.itemType === 'card');
+      const files = items.filter(item => item.itemType === 'file');
       
       return {
         ...workspace,
-        pages: pages || []
+        pages: pages || [],
+        files: files || []
       };
     } catch (error) {
       console.error(`❌ Failed to get workspace with pages ${workspaceId}:`, error.message);

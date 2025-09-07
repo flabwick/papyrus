@@ -152,24 +152,41 @@ class WorkspaceFile {
    * @returns {Promise<Array<Object>>} - Array of mixed workspace items
    */
   static async getWorkspaceItems(workspaceId) {
-    const result = await query(`
-      SELECT 
-        item_type,
-        position,
-        depth,
-        is_collapsed,
-        added_at,
-        page_id,
-        file_id
-      FROM workspace_items_view
-      WHERE workspace_id = $1
-      ORDER BY position
-    `, [workspaceId]);
-
     const items = [];
     const Page = require('./Page');
 
-    for (const row of result.rows) {
+    // Get pages from workspace
+    const pagesResult = await query(`
+      SELECT 
+        'page' as item_type,
+        wp.position,
+        wp.depth,
+        wp.is_collapsed,
+        wp.added_at,
+        wp.page_id,
+        null as file_id
+      FROM workspace_pages wp
+      WHERE wp.workspace_id = $1
+    `, [workspaceId]);
+
+    // Get files from workspace
+    const filesResult = await query(`
+      SELECT 
+        'file' as item_type,
+        wf.position,
+        wf.depth,
+        wf.is_collapsed,
+        wf.added_at,
+        null as page_id,
+        wf.file_id
+      FROM workspace_files wf
+      WHERE wf.workspace_id = $1
+    `, [workspaceId]);
+
+    // Combine and sort by position
+    const allRows = [...pagesResult.rows, ...filesResult.rows].sort((a, b) => a.position - b.position);
+
+    for (const row of allRows) {
       if (row.item_type === 'page') {
         // Get full page data
         const page = await Page.findById(row.page_id);
@@ -179,7 +196,7 @@ class WorkspaceFile {
           pageData.depth = row.depth;
           pageData.isCollapsed = row.is_collapsed;
           pageData.addedAt = row.added_at;
-          pageData.itemType = 'page';
+          pageData.itemType = 'card';
           items.push(pageData);
         }
       } else if (row.item_type === 'file') {
@@ -188,8 +205,8 @@ class WorkspaceFile {
           SELECT f.*, wf.position, wf.depth, wf.is_collapsed, wf.added_at
           FROM files f
           JOIN workspace_files wf ON f.id = wf.file_id
-          WHERE wf.file_id = $1
-        `, [row.file_id]);
+          WHERE wf.file_id = $1 AND wf.workspace_id = $2
+        `, [row.file_id, workspaceId]);
 
         if (fileResult.rows.length > 0) {
           const fileRow = fileResult.rows[0];
@@ -198,10 +215,12 @@ class WorkspaceFile {
             libraryId: fileRow.library_id,
             fileName: fileRow.file_name,
             fileType: fileRow.file_type,
-            fileSize: fileRow.file_size,
+            fileSize: parseInt(fileRow.file_size), // Ensure it's a number
             filePath: fileRow.file_path,
             // Metadata based on file type
-            title: fileRow.file_type === 'epub' ? fileRow.epub_title : fileRow.pdf_title,
+            title: fileRow.file_type === 'epub' ? fileRow.epub_title : 
+                   fileRow.file_type === 'pdf' ? fileRow.pdf_title :
+                   fileRow.content_preview, // For images, use content preview as title
             author: fileRow.file_type === 'epub' ? fileRow.epub_author : fileRow.pdf_author,
             description: fileRow.epub_description,
             pageCount: fileRow.pdf_page_count,
@@ -211,12 +230,17 @@ class WorkspaceFile {
             contentPreview: fileRow.content_preview,
             processingStatus: fileRow.processing_status,
             uploadedAt: fileRow.uploaded_at,
-            // Workspace metadata
-            position: fileRow.position,
-            depth: fileRow.depth,
-            isCollapsed: fileRow.is_collapsed,
+            // Workspace metadata - ensure these are properly set
+            position: parseInt(fileRow.position),
+            depth: parseInt(fileRow.depth || 0),
+            isCollapsed: fileRow.is_collapsed || false,
             addedAt: fileRow.added_at,
-            itemType: 'file'
+            itemType: 'file',
+            // Additional fields that frontend might expect
+            hasFile: true,
+            lastModified: fileRow.updated_at || fileRow.uploaded_at,
+            createdAt: fileRow.created_at || fileRow.uploaded_at,
+            updatedAt: fileRow.updated_at || fileRow.uploaded_at
           };
           items.push(fileData);
         }

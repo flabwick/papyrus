@@ -197,10 +197,20 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
       console.log('Workspace response:', workspaceResponse.data);
       setWorkspace(workspaceResponse.data.workspace);
 
-      // Load workspace items (mixed cards and files) - use the workspace data that includes pages
-      if (workspaceResponse.data.workspace && workspaceResponse.data.workspace.pages) {
-        console.log('Using workspace pages:', workspaceResponse.data.workspace.pages.length);
-        setWorkspaceItems(workspaceResponse.data.workspace.pages);
+      // Load workspace items (mixed cards and files) - use the workspace data that includes pages and files
+      if (workspaceResponse.data.workspace) {
+        const workspace = workspaceResponse.data.workspace;
+        const pages = workspace.pages || [];
+        const files = workspace.files || [];
+        
+        // Combine pages and files, then sort by position
+        const allItems = [...pages, ...files].sort((a, b) => a.position - b.position);
+        
+        console.log('Using workspace pages:', pages.length);
+        console.log('Using workspace files:', files.length);
+        console.log('Total workspace items:', allItems.length);
+        
+        setWorkspaceItems(allItems);
       } else {
         // Fallback: try to load items separately if not included in workspace response
         console.log('Fallback: loading cards separately');
