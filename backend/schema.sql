@@ -1,5 +1,5 @@
--- Clarity Phase 1 Database Schema
--- File system as source of truth, database stores metadata and relationships
+-- Papyrus Database Schema
+-- Modern schema matching current codebase expectations
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -16,7 +16,7 @@ CREATE TABLE users (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
--- Libraries table - knowledge bases containing cards
+-- Libraries table - knowledge bases containing pages
 CREATE TABLE libraries (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -29,64 +29,89 @@ CREATE TABLE libraries (
     UNIQUE(user_id, name) -- library names must be unique per user
 );
 
--- Cards table - individual pieces of content
-CREATE TABLE cards (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    library_id UUID NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
-    title VARCHAR(200),
-    file_path VARCHAR(700), -- path to actual file in file system (nullable for manual cards)
-    file_hash VARCHAR(64), -- SHA-256 hash for sync detection
-    content_preview TEXT, -- first 500 chars for quick access
-    file_size BIGINT DEFAULT 0,
-    is_active BOOLEAN DEFAULT true, -- false when file deleted (soft delete)
-    last_modified TIMESTAMP WITH TIME ZONE,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    -- Card Type System fields
-    card_type VARCHAR(20) DEFAULT 'saved' CHECK (card_type IN ('saved', 'file', 'unsaved')),
-    is_brain_wide BOOLEAN DEFAULT true,
-    stream_specific_id UUID REFERENCES streams(id),
-    file_id UUID, -- reference to files table when available
-    -- Title uniqueness only applies to saved cards with titles
-    CONSTRAINT unique_library_title UNIQUE (library_id, title) DEFERRABLE INITIALLY DEFERRED
-);
-
--- Card Links table - comprehensive [[card-title]] tracking
-CREATE TABLE card_links (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    source_card_id UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
-    target_card_id UUID REFERENCES cards(id) ON DELETE CASCADE, -- nullable for broken links
-    link_text VARCHAR(300) NOT NULL, -- exact text inside [[]]
-    position_in_source INTEGER NOT NULL, -- character position in source content
-    link_instance INTEGER NOT NULL DEFAULT 1, -- for multiple links to same card (1st, 2nd, etc)
-    is_valid BOOLEAN DEFAULT false, -- true when target_card_id exists
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Streams table - temporary views of selected cards
-CREATE TABLE streams (
+-- Workspaces table - temporary views of selected pages
+CREATE TABLE workspaces (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     library_id UUID NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
     name VARCHAR(100) NOT NULL,
     is_favorited BOOLEAN DEFAULT false,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     last_accessed_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(library_id, name) -- stream names must be unique per library
+    UNIQUE(library_id, name) -- workspace names must be unique per library
 );
 
--- Stream Cards table - many-to-many relationship between streams and cards
-CREATE TABLE stream_cards (
+-- Files table - file metadata and tracking
+CREATE TABLE files (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    stream_id UUID NOT NULL REFERENCES streams(id) ON DELETE CASCADE,
-    card_id UUID NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
-    position INTEGER NOT NULL DEFAULT 0, -- display order within stream
+    library_id UUID NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+    file_path VARCHAR(700) NOT NULL,
+    file_name VARCHAR(255) NOT NULL,
+    file_hash VARCHAR(64), -- SHA-256 hash for sync detection
+    file_size BIGINT DEFAULT 0,
+    mime_type VARCHAR(100),
+    is_active BOOLEAN DEFAULT true,
+    last_modified TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Pages table - individual pieces of content
+CREATE TABLE pages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    library_id UUID NOT NULL REFERENCES libraries(id) ON DELETE CASCADE,
+    title VARCHAR(200),
+    file_path VARCHAR(700), -- path to actual file in file system (nullable for manual pages)
+    file_hash VARCHAR(64), -- SHA-256 hash for sync detection
+    content_preview TEXT, -- first 500 chars for quick access
+    file_size BIGINT DEFAULT 0,
+    page_type VARCHAR(50) DEFAULT 'file', -- 'file', 'manual', 'unsaved', etc.
+    is_library_wide BOOLEAN DEFAULT true, -- true for titled pages, false for workspace-specific
+    workspace_specific_id UUID REFERENCES workspaces(id), -- for untitled workspace-specific pages
+    is_active BOOLEAN DEFAULT true, -- false when file deleted (soft delete)
+    last_modified TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    file_id UUID REFERENCES files(id), -- reference to files table when available
+    -- Title uniqueness only applies to pages with titles
+    CONSTRAINT unique_library_title UNIQUE (library_id, title) DEFERRABLE INITIALLY DEFERRED
+);
+
+-- Page Links table - comprehensive [[page-title]] tracking
+CREATE TABLE page_links (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    source_page_id UUID NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    target_page_id UUID REFERENCES pages(id) ON DELETE CASCADE, -- nullable for broken links
+    link_text VARCHAR(300) NOT NULL, -- exact text inside [[]]
+    position_in_source INTEGER NOT NULL, -- character position in source content
+    link_instance INTEGER NOT NULL DEFAULT 1, -- for multiple links to same page (1st, 2nd, etc)
+    is_valid BOOLEAN DEFAULT false, -- true when target_page_id exists
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Workspace Pages table - many-to-many relationship between workspaces and pages
+CREATE TABLE workspace_pages (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    page_id UUID NOT NULL REFERENCES pages(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL DEFAULT 0, -- display order within workspace
     depth INTEGER DEFAULT 0, -- nesting depth (0=top level, 1=nested, etc.)
-    is_in_ai_context BOOLEAN DEFAULT false, -- per-stream AI context selection
-    is_collapsed BOOLEAN DEFAULT false, -- per-stream collapsed state
+    is_in_ai_context BOOLEAN DEFAULT false, -- per-workspace AI context selection
+    is_collapsed BOOLEAN DEFAULT false, -- per-workspace collapsed state
     added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE(stream_id, card_id), -- card can only appear once per stream
-    UNIQUE(stream_id, position) -- positions must be unique within stream
+    UNIQUE(workspace_id, page_id), -- page can only appear once per workspace
+    UNIQUE(workspace_id, position) -- positions must be unique within workspace
+);
+
+-- Workspace Files table - files associated with workspaces
+CREATE TABLE workspace_files (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    file_id UUID NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL DEFAULT 0,
+    added_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(workspace_id, file_id), -- file can only appear once per workspace
+    UNIQUE(workspace_id, position) -- positions must be unique within workspace
 );
 
 -- CLI Sessions table - authentication tokens for CLI access
@@ -111,32 +136,37 @@ CREATE INDEX idx_users_username ON users(username);
 CREATE INDEX idx_libraries_user_id ON libraries(user_id);
 CREATE INDEX idx_libraries_folder_path ON libraries(folder_path);
 
-CREATE INDEX idx_cards_library_id ON cards(library_id);
-CREATE INDEX idx_cards_title ON cards(library_id, title);
-CREATE INDEX idx_cards_file_path ON cards(file_path);
-CREATE INDEX idx_cards_file_hash ON cards(file_hash);
-CREATE INDEX idx_cards_active ON cards(is_active);
--- Card Type System indexes
-CREATE INDEX idx_cards_type ON cards(card_type);
-CREATE INDEX idx_cards_brain_wide ON cards(is_brain_wide);
-CREATE INDEX idx_cards_stream_specific ON cards(stream_specific_id);
-CREATE INDEX idx_cards_type_library ON cards(library_id, card_type);
+CREATE INDEX idx_files_library_id ON files(library_id);
+CREATE INDEX idx_files_path ON files(file_path);
+CREATE INDEX idx_files_hash ON files(file_hash);
+CREATE INDEX idx_files_active ON files(is_active);
 
-CREATE INDEX idx_card_links_source ON card_links(source_card_id);
-CREATE INDEX idx_card_links_target ON card_links(target_card_id);
-CREATE INDEX idx_card_links_text ON card_links(link_text);
-CREATE INDEX idx_card_links_position ON card_links(source_card_id, position_in_source);
-CREATE INDEX idx_card_links_valid ON card_links(is_valid);
+CREATE INDEX idx_pages_library_id ON pages(library_id);
+CREATE INDEX idx_pages_title ON pages(library_id, title);
+CREATE INDEX idx_pages_file_path ON pages(file_path);
+CREATE INDEX idx_pages_file_hash ON pages(file_hash);
+CREATE INDEX idx_pages_active ON pages(is_active);
+CREATE INDEX idx_pages_file_id ON pages(file_id);
 
-CREATE INDEX idx_streams_library_id ON streams(library_id);
-CREATE INDEX idx_streams_favorited ON streams(is_favorited);
-CREATE INDEX idx_streams_last_accessed ON streams(last_accessed_at);
+CREATE INDEX idx_page_links_source ON page_links(source_page_id);
+CREATE INDEX idx_page_links_target ON page_links(target_page_id);
+CREATE INDEX idx_page_links_text ON page_links(link_text);
+CREATE INDEX idx_page_links_position ON page_links(source_page_id, position_in_source);
+CREATE INDEX idx_page_links_valid ON page_links(is_valid);
 
-CREATE INDEX idx_stream_cards_stream_id ON stream_cards(stream_id);
-CREATE INDEX idx_stream_cards_card_id ON stream_cards(card_id);
-CREATE INDEX idx_stream_cards_position ON stream_cards(stream_id, position);
-CREATE INDEX idx_stream_cards_ai_context ON stream_cards(stream_id, is_in_ai_context);
-CREATE INDEX idx_stream_cards_depth ON stream_cards(stream_id, depth);
+CREATE INDEX idx_workspaces_library_id ON workspaces(library_id);
+CREATE INDEX idx_workspaces_favorited ON workspaces(is_favorited);
+CREATE INDEX idx_workspaces_last_accessed ON workspaces(last_accessed_at);
+
+CREATE INDEX idx_workspace_pages_workspace_id ON workspace_pages(workspace_id);
+CREATE INDEX idx_workspace_pages_page_id ON workspace_pages(page_id);
+CREATE INDEX idx_workspace_pages_position ON workspace_pages(workspace_id, position);
+CREATE INDEX idx_workspace_pages_ai_context ON workspace_pages(workspace_id, is_in_ai_context);
+CREATE INDEX idx_workspace_pages_depth ON workspace_pages(workspace_id, depth);
+
+CREATE INDEX idx_workspace_files_workspace_id ON workspace_files(workspace_id);
+CREATE INDEX idx_workspace_files_file_id ON workspace_files(file_id);
+CREATE INDEX idx_workspace_files_position ON workspace_files(workspace_id, position);
 
 CREATE INDEX idx_cli_sessions_token ON cli_sessions(token);
 CREATE INDEX idx_cli_sessions_user_id ON cli_sessions(user_id);
@@ -144,38 +174,11 @@ CREATE INDEX idx_cli_sessions_expires ON cli_sessions(expires_at);
 
 CREATE INDEX idx_web_sessions_expire ON web_sessions(expire);
 
--- Update timestamp trigger function with card type conversion logic
+-- Update timestamp trigger function
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = CURRENT_TIMESTAMP;
-    
-    -- Auto-convert unsaved to saved when title is added (for cards table only)
-    IF TG_TABLE_NAME = 'cards' THEN
-        -- Auto-convert unsaved to saved when title is added
-        IF OLD.card_type = 'unsaved' AND NEW.title IS NOT NULL AND NEW.title != '' AND 
-           (OLD.title IS NULL OR OLD.title = '') THEN
-            NEW.card_type = 'saved';
-            NEW.is_brain_wide = true;
-            NEW.stream_specific_id = NULL;
-        END IF;
-        
-        -- Ensure consistency rules for stream-specific cards
-        IF NEW.card_type = 'unsaved' AND NEW.stream_specific_id IS NULL THEN
-            RAISE EXCEPTION 'Unsaved cards must have stream_specific_id';
-        END IF;
-        
-        -- Library-wide cards should not have stream restrictions
-        IF NEW.is_brain_wide = true AND NEW.stream_specific_id IS NOT NULL THEN
-            NEW.stream_specific_id = NULL;
-        END IF;
-        
-        -- Only unsaved cards can have stream restrictions
-        IF NEW.card_type != 'unsaved' AND NEW.stream_specific_id IS NOT NULL THEN
-            NEW.stream_specific_id = NULL;
-        END IF;
-    END IF;
-    
     RETURN NEW;
 END;
 $$ language 'plpgsql';
@@ -187,8 +190,11 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 CREATE TRIGGER update_libraries_updated_at BEFORE UPDATE ON libraries
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_cards_updated_at BEFORE UPDATE ON cards
+CREATE TRIGGER update_files_updated_at BEFORE UPDATE ON files
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_card_links_updated_at BEFORE UPDATE ON card_links
+CREATE TRIGGER update_pages_updated_at BEFORE UPDATE ON pages
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_page_links_updated_at BEFORE UPDATE ON page_links
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
