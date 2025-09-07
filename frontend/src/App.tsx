@@ -1,5 +1,6 @@
 import React from 'react';
 import './App.css';
+import './styles/forms.css';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { AppProvider, useApp } from './contexts/AppContext';
 import Login from './components/Login';

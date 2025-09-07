@@ -6,6 +6,7 @@ interface CommandLineInterfaceProps {
   onGenerate: () => void;
   onAddPage: () => void;
   onAddFile: () => void;
+  onAddForm: () => void;
 }
 
 interface Command {
@@ -20,6 +21,7 @@ const CommandLineInterface: React.FC<CommandLineInterfaceProps> = ({
   onGenerate,
   onAddPage,
   onAddFile,
+  onAddForm,
 }) => {
   const [input, setInput] = useState('');
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -51,6 +53,11 @@ const CommandLineInterface: React.FC<CommandLineInterfaceProps> = ({
       name: '/file',
       description: 'Add an existing file',
       action: onAddFile,
+    },
+    {
+      name: '/form',
+      description: 'Create a new form card',
+      action: onAddForm,
     },
   ];
 

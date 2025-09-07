@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Page from './Page';
 import FileViewer from './FileViewer';
+import FormCard from './FormCard';
 import CardSearchInterface from './PageSearchInterface';
 import FileUploadInterface from './FileUploadInterface';
 import FileSearchInterface from './FileSearchInterface';
@@ -11,7 +12,7 @@ import { useApp } from '../contexts/AppContext';
 import config from '../config.js';
 
 interface WorkspaceItem {
-  itemType: 'card' | 'file';
+  itemType: 'card' | 'file' | 'form';
   position: number;
   id: string;
   [key: string]: any;
@@ -197,20 +198,63 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
       console.log('Workspace response:', workspaceResponse.data);
       setWorkspace(workspaceResponse.data.workspace);
 
-      // Load workspace items (mixed cards and files) - use the workspace data that includes pages and files
+      // Load workspace items (mixed cards, files, and forms) - use the workspace data that includes all item types
       if (workspaceResponse.data.workspace) {
         const workspace = workspaceResponse.data.workspace;
         const pages = workspace.pages || [];
         const files = workspace.files || [];
+        const forms = workspace.forms || [];
         
-        // Combine pages and files, then sort by position
-        const allItems = [...pages, ...files].sort((a, b) => a.position - b.position);
+        // Combine pages, files, and forms, then sort by position
+        const allItems = [...pages, ...files, ...forms].sort((a, b) => a.position - b.position);
         
         console.log('Using workspace pages:', pages.length);
         console.log('Using workspace files:', files.length);
+        console.log('Using workspace forms:', forms.length);
         console.log('Total workspace items:', allItems.length);
         
         setWorkspaceItems(allItems);
+        
+        // Check for form-generated page to auto-stream
+        const formGeneratedPageId = (window as any).formGeneratedPageId;
+        if (formGeneratedPageId) {
+          delete (window as any).formGeneratedPageId;
+          
+          // Find the generated page and trigger streaming
+          const generatedPage = allItems.find(item => item.id === formGeneratedPageId);
+          if (generatedPage) {
+            setTimeout(() => {
+              // Trigger AI streaming by connecting to the streaming endpoint
+              const eventSourceUrl = `${config.apiUrl}/ai/stream/${formGeneratedPageId}`;
+              const eventSource = new EventSource(eventSourceUrl, { withCredentials: true });
+              
+              eventSource.onmessage = (event) => {
+                try {
+                  const data = JSON.parse(event.data);
+                  if (data.type === 'chunk') {
+                    // Update the page content in real-time
+                    setWorkspaceItems(prev => prev.map(item => {
+                      if (item.id === formGeneratedPageId) {
+                        return { ...item, content: data.totalContent, contentPreview: data.totalContent };
+                      }
+                      return item;
+                    }));
+                  } else if (data.type === 'complete') {
+                    eventSource.close();
+                  } else if (data.type === 'error') {
+                    eventSource.close();
+                  }
+                } catch (error) {
+                  console.error('Error parsing AI streaming data:', error);
+                }
+              };
+              
+              eventSource.onerror = () => {
+                eventSource.close();
+              };
+            }, 500);
+          }
+        }
       } else {
         // Fallback: try to load items separately if not included in workspace response
         console.log('Fallback: loading cards separately');
@@ -919,6 +963,21 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
               onAddFileBelow={handleAddFileBelow}
             />
           );
+        } else if (item.itemType === 'form') {
+          // Render form card
+          return (
+            <FormCard
+              key={itemId}
+              form={item}
+              workspaceId={workspaceId}
+              onRemove={() => {}}
+              onToggleAI={() => {}}
+              onToggleCollapse={() => {}}
+              showAddInterface={false}
+              onShowAddInterface={() => {}}
+              onWorkspaceUpdate={loadWorkspace}
+            />
+          );
         } else if (item.itemType === 'card') {
           // Render card
           return (
@@ -1226,6 +1285,7 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
         onGenerate={handleCommandGenerate}
         onAddPage={handleCommandAddPage}
         onAddFile={handleCommandAddFile}
+        onAddForm={() => {}}
       />
     </div>
   );

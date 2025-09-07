@@ -43,6 +43,34 @@ class AIProviderService {
     return models;
   }
 
+  async generateContent(prompt, modelId) {
+    try {
+      console.log(`🔍 AI Service: Looking for model ${modelId}`);
+      
+      const model = this.getAvailableModels().find(m => m.id === modelId);
+      
+      if (!model) {
+        throw new Error(`Model ${modelId} not found`);
+      }
+      
+      console.log(`🔍 AI Service: Found model ${model.name}, provider: ${model.provider}`);
+      console.log(`🔍 AI Service: Starting generation with ${model.provider}`);
+      
+      const provider = this.providers[model.provider];
+      if (!provider) {
+        throw new Error(`Provider ${model.provider} not available`);
+      }
+      
+      // Generate content synchronously (non-streaming)
+      const response = await provider.generateContent(prompt, modelId);
+      return response;
+      
+    } catch (error) {
+      console.error('❌ AI generation error:', error);
+      throw error;
+    }
+  }
+
   async generateStreaming(modelId, prompt, context, onChunk, onComplete, onError) {
     try {
       console.log(`🔍 AI Service: Looking for model ${modelId}`);
@@ -74,6 +102,38 @@ class OpenAIProvider {
   constructor(apiKey) {
     this.apiKey = apiKey;
     this.baseUrl = 'https://api.openai.com/v1';
+  }
+
+  async generateContent(prompt, model) {
+    try {
+      const messages = [{
+        role: 'user',
+        content: prompt
+      }];
+
+      const response = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: model,
+          messages: messages,
+          temperature: 0.7,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`OpenAI API error: ${response.statusText} - ${errorText}`);
+      }
+
+      const data = await response.json();
+      return data.choices[0].message.content;
+    } catch (error) {
+      throw error;
+    }
   }
 
   async generateStreaming(model, prompt, context, onChunk, onComplete, onError) {
@@ -169,6 +229,33 @@ class AnthropicProvider {
     this.baseUrl = 'https://api.anthropic.com/v1';
   }
 
+  async generateContent(prompt, model) {
+    try {
+      const response = await fetch(`${this.baseUrl}/messages`, {
+        method: 'POST',
+        headers: {
+          'x-api-key': this.apiKey,
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: model,
+          max_tokens: 4096,
+          messages: [{ role: 'user', content: prompt }],
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Anthropic API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.content[0].text;
+    } catch (error) {
+      throw error;
+    }
+  }
+
   async generateStreaming(model, prompt, context, onChunk, onComplete, onError) {
     try {
       let fullPrompt = '';
@@ -248,6 +335,31 @@ class GoogleProvider {
   constructor(apiKey) {
     this.apiKey = apiKey;
     this.baseUrl = 'https://generativelanguage.googleapis.com/v1beta';
+  }
+
+  async generateContent(prompt, model) {
+    try {
+      const response = await fetch(`${this.baseUrl}/models/${model}:generateContent?key=${this.apiKey}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [{
+            parts: [{ text: prompt }]
+          }]
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Google AI API error: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.candidates[0].content.parts[0].text;
+    } catch (error) {
+      throw error;
+    }
   }
 
   async generateStreaming(model, prompt, context, onChunk, onComplete, onError) {

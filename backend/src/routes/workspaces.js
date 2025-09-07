@@ -2,8 +2,10 @@ const express = require('express');
 const router = express.Router();
 const Workspace = require('../models/Workspace');
 const WorkspacePage = require('../models/WorkspacePage');
+const WorkspaceForm = require('../models/WorkspaceForm');
 const Library = require('../models/Library');
 const Page = require('../models/Page');
+const Form = require('../models/Form');
 const WorkspaceManager = require('../services/workspaceManager');
 const { requireAuth } = require('../middleware/auth');
 
@@ -570,44 +572,43 @@ router.put('/:id/pages/:pageId', async (req, res) => {
  */
 router.delete('/:id/pages/:pageId', async (req, res) => {
   try {
-    const { id, pageId } = req.params;
-    
-    if (!validateUUID(id) || !validateUUID(pageId)) {
-      return res.status(400).json({
-        error: 'Invalid ID',
-        message: 'Workspace ID and page ID must be valid UUIDs'  
-      });
+    const { id: workspaceId, pageId } = req.params;
+
+    if (!validateUUID(workspaceId) || !validateUUID(pageId)) {
+      return res.status(400).json({ error: 'Invalid workspace or page ID format' });
     }
-    
-    // Verify ownership
-    await validateWorkspaceOwnership(id, req.session.userId);
-    
-    // Remove page from workspace
-    const result = await WorkspaceManager.removePageFromWorkspace(id, pageId);
-    
-    if (!result.removed) {
-      return res.status(404).json({
+
+    // Verify workspace ownership
+    const workspace = await Workspace.findById(workspaceId);
+    if (!workspace) {
+      return res.status(404).json({ error: 'Workspace not found' });
+    }
+
+    await validateLibraryOwnership(workspace.libraryId, req.session.userId);
+
+    // Check if this is an untitled page (workspace-specific)
+    const page = await Page.findById(pageId);
+    if (page && page.workspaceSpecificId === workspaceId) {
+      // This is an untitled page - delete it completely
+      console.log('🗑️ Deleting untitled page:', pageId);
+      await page.delete();
+      res.json({ message: 'Untitled page deleted successfully' });
+    } else {
+      // This is a titled page - remove from workspace
+      await WorkspacePage.removePageFromWorkspace(workspaceId, pageId);
+      res.json({ message: 'Page removed from workspace successfully' });
+    }
+  } catch (error) {
+    console.error('❌ Error removing page from workspace:', error);
+    if (error.message === 'Page not found in workspace') {
+      return res.status(404).json({ 
         error: 'Page not found in workspace',
         message: 'The page is not in this workspace'
       });
     }
-    
-    res.json({
-      ...result,
-      message: 'Page removed from workspace successfully'
-    });
-
-  } catch (error) {
-    console.error('❌ Remove page from workspace error:', error);
-    if (error.message.includes('not found') || error.message.includes('Access denied')) {
-      return res.status(error.message.includes('Access denied') ? 403 : 404).json({
-        error: error.message.includes('Access denied') ? 'Access denied' : 'Not found',
-        message: error.message
-      });
-    }
-    res.status(500).json({
+    res.status(500).json({ 
       error: 'Failed to remove page from workspace',
-      message: 'An error occurred while removing the page'
+      message: error.message 
     });
   }
 });
@@ -1016,19 +1017,9 @@ router.get('/:id/cards', async (req, res) => {
     // Verify ownership and get workspace
     const { workspace } = await validateWorkspaceOwnership(id, req.session.userId);
     
-    // Get both pages and files for this workspace
-    const pages = await workspace.getPages();
+    // Get all workspace items (pages, files, and forms) using the unified method
     const WorkspaceFile = require('../models/WorkspaceFile');
-    const files = await WorkspaceFile.getWorkspaceFiles(id);
-    
-    // Combine pages and files, marking their types
-    const allItems = [
-      ...pages.map(page => ({ ...page, itemType: 'card' })),
-      ...files.map(file => ({ ...file, itemType: 'file' }))
-    ];
-    
-    // Sort by position
-    allItems.sort((a, b) => (a.position || 0) - (b.position || 0));
+    const allItems = await WorkspaceFile.getWorkspaceItems(id);
     
     res.json({
       success: true,
@@ -1047,6 +1038,253 @@ router.get('/:id/cards', async (req, res) => {
     res.status(500).json({
       error: 'Failed to retrieve workspace cards',
       message: 'An error occurred while fetching the workspace cards'
+    });
+  }
+});
+
+/**
+ * POST /api/workspaces/:id/forms
+ * Add existing form to workspace
+ */
+router.post('/:id/forms', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { formId, position, depth = 0, isInAIContext = false, isCollapsed = false } = req.body;
+    
+    if (!validateUUID(id)) {
+      return res.status(400).json({
+        error: 'Invalid workspace ID',
+        message: 'Workspace ID must be a valid UUID'
+      });
+    }
+    
+    if (!formId || !validateUUID(formId)) {
+      return res.status(400).json({
+        error: 'Invalid form ID',
+        message: 'Valid form ID is required'
+      });
+    }
+    
+    // Verify ownership
+    await validateWorkspaceOwnership(id, req.session.userId);
+    
+    // Add form to workspace
+    const result = await WorkspaceForm.addFormToWorkspace(id, formId, position, depth, {
+      isInAIContext,
+      isCollapsed
+    });
+    
+    res.status(201).json({
+      workspaceForm: result,
+      message: 'Form added to workspace successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Add form to workspace error:', error);
+    if (error.message.includes('not found') || error.message.includes('Access denied')) {
+      return res.status(error.message.includes('Access denied') ? 403 : 404).json({
+        error: error.message.includes('Access denied') ? 'Access denied' : 'Not found',
+        message: error.message
+      });
+    }
+    if (error.message.includes('already exists')) {
+      return res.status(409).json({
+        error: 'Form already in workspace',
+        message: error.message
+      });
+    }
+    res.status(500).json({
+      error: 'Failed to add form to workspace',
+      message: 'An error occurred while adding the form'
+    });
+  }
+});
+
+/**
+ * DELETE /api/workspaces/:id/forms/:formId
+ * Remove form from workspace
+ */
+router.delete('/:id/forms/:formId', async (req, res) => {
+  try {
+    const { id, formId } = req.params;
+    
+    if (!validateUUID(id) || !validateUUID(formId)) {
+      return res.status(400).json({
+        error: 'Invalid ID format',
+        message: 'Both workspace ID and form ID must be valid UUIDs'
+      });
+    }
+    
+    // Verify ownership
+    await validateWorkspaceOwnership(id, req.session.userId);
+    
+    // Remove form from workspace
+    const removed = await WorkspaceForm.removeFormFromWorkspace(id, formId);
+    
+    if (!removed) {
+      return res.status(404).json({
+        error: 'Form not found in workspace',
+        message: 'The specified form is not in this workspace'
+      });
+    }
+    
+    res.json({
+      success: true,
+      message: 'Form removed from workspace successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Remove form from workspace error:', error);
+    if (error.message.includes('not found') || error.message.includes('Access denied')) {
+      return res.status(error.message.includes('Access denied') ? 403 : 404).json({
+        error: error.message.includes('Access denied') ? 'Access denied' : 'Not found',
+        message: error.message
+      });
+    }
+    res.status(500).json({
+      error: 'Failed to remove form from workspace',
+      message: 'An error occurred while removing the form'
+    });
+  }
+});
+
+/**
+ * PUT /api/workspaces/:id/forms/:formId/ai-context
+ * Toggle AI context for form in workspace
+ */
+router.put('/:id/forms/:formId/ai-context', async (req, res) => {
+  try {
+    const { id, formId } = req.params;
+    
+    if (!validateUUID(id) || !validateUUID(formId)) {
+      return res.status(400).json({
+        error: 'Invalid ID format',
+        message: 'Both workspace ID and form ID must be valid UUIDs'
+      });
+    }
+    
+    // Verify ownership
+    await validateWorkspaceOwnership(id, req.session.userId);
+    
+    // Toggle AI context
+    const newState = await WorkspaceForm.toggleAIContext(id, formId);
+    
+    res.json({
+      success: true,
+      isInAIContext: newState,
+      message: `Form ${newState ? 'added to' : 'removed from'} AI context`
+    });
+
+  } catch (error) {
+    console.error('❌ Toggle form AI context error:', error);
+    if (error.message.includes('not found') || error.message.includes('Access denied')) {
+      return res.status(error.message.includes('Access denied') ? 403 : 404).json({
+        error: error.message.includes('Access denied') ? 'Access denied' : 'Not found',
+        message: error.message
+      });
+    }
+    res.status(500).json({
+      error: 'Failed to toggle form AI context',
+      message: 'An error occurred while updating the form'
+    });
+  }
+});
+
+/**
+ * PUT /api/workspaces/:id/forms/:formId/collapsed
+ * Toggle collapsed state for form in workspace
+ */
+router.put('/:id/forms/:formId/collapsed', async (req, res) => {
+  try {
+    const { id, formId } = req.params;
+    
+    if (!validateUUID(id) || !validateUUID(formId)) {
+      return res.status(400).json({
+        error: 'Invalid ID format',
+        message: 'Both workspace ID and form ID must be valid UUIDs'
+      });
+    }
+    
+    // Verify ownership
+    await validateWorkspaceOwnership(id, req.session.userId);
+    
+    // Toggle collapsed state
+    const newState = await WorkspaceForm.toggleCollapsed(id, formId);
+    
+    res.json({
+      success: true,
+      isCollapsed: newState,
+      message: `Form ${newState ? 'collapsed' : 'expanded'}`
+    });
+
+  } catch (error) {
+    console.error('❌ Toggle form collapsed state error:', error);
+    if (error.message.includes('not found') || error.message.includes('Access denied')) {
+      return res.status(error.message.includes('Access denied') ? 403 : 404).json({
+        error: error.message.includes('Access denied') ? 'Access denied' : 'Not found',
+        message: error.message
+      });
+    }
+    res.status(500).json({
+      error: 'Failed to toggle form collapsed state',
+      message: 'An error occurred while updating the form'
+    });
+  }
+});
+
+/**
+ * POST /api/workspaces/:id/forms/create
+ * Create new form and add to workspace
+ */
+router.post('/:id/forms/create', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title = 'Untitled Form', content = '', formData = {}, position, depth = 0, isInAIContext = false, isCollapsed = false } = req.body;
+    
+    if (!validateUUID(id)) {
+      return res.status(400).json({
+        error: 'Invalid workspace ID',
+        message: 'Workspace ID must be a valid UUID'
+      });
+    }
+    
+    // Verify ownership and get workspace
+    const { workspace } = await validateWorkspaceOwnership(id, req.session.userId);
+    
+    // Create form in the workspace's library
+    const form = await Form.create(workspace.libraryId, title, content, formData);
+    
+    // Add form to workspace
+    const workspaceForm = await WorkspaceForm.addFormToWorkspace(id, form.id, position, depth, {
+      isInAIContext,
+      isCollapsed
+    });
+    
+    // Get the form data for response
+    const formData_response = await form.toJSON(true);
+    formData_response.position = workspaceForm.position;
+    formData_response.depth = workspaceForm.depth;
+    formData_response.isInAIContext = workspaceForm.isInAIContext;
+    formData_response.isCollapsed = workspaceForm.isCollapsed;
+    formData_response.addedAt = workspaceForm.addedAt;
+    formData_response.itemType = 'form';
+    
+    res.status(201).json({
+      form: formData_response,
+      message: 'Form created and added to workspace successfully'
+    });
+
+  } catch (error) {
+    console.error('❌ Create form in workspace error:', error);
+    if (error.message.includes('not found') || error.message.includes('Access denied')) {
+      return res.status(error.message.includes('Access denied') ? 403 : 404).json({
+        error: error.message.includes('Access denied') ? 'Access denied' : 'Not found',
+        message: error.message
+      });
+    }
+    res.status(500).json({
+      error: 'Failed to create form in workspace',
+      message: 'An error occurred while creating the form'
     });
   }
 });

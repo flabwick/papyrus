@@ -70,38 +70,13 @@ class WorkspacePage {
         position = maxPositionResult.rows[0].max_position + 1;
       }
 
-      // Debug: Check current positions before shifting
-      const beforeShift = await client.query(
-        'SELECT card_id, position FROM workspace_cards WHERE workspace_id = $1 ORDER BY position',
-        [workspaceId]
-      );
-      console.log(`🔍 Before shift - Workspace positions:`, beforeShift.rows.map(r => `${r.card_id.substring(0,8)}:${r.position}`));
-      console.log(`🎯 Inserting card ${cardId.substring(0,8)} at position ${position}`);
-
-      // Shift existing cards at this position and after to make room
-      // Get cards that need to be shifted (in reverse order to avoid conflicts)
-      const cardsToShift = await client.query(
-        'SELECT id, position FROM workspace_cards WHERE workspace_id = $1 AND position >= $2 ORDER BY position DESC',
+      // Shift existing pages at this position and after to make room
+      await client.query(
+        'UPDATE workspace_pages SET position = position + 1 WHERE workspace_id = $1 AND position >= $2',
         [workspaceId, position]
       );
       
-      // Shift each card individually from highest position to lowest
-      let shiftedCount = 0;
-      for (const cardToShift of cardsToShift.rows) {
-        await client.query(
-          'UPDATE workspace_cards SET position = $1 WHERE id = $2',
-          [cardToShift.position + 1, cardToShift.id]
-        );
-        shiftedCount++;
-      }
-      console.log(`📊 Shifted ${shiftedCount} cards up by 1 from position ${position}`);
-
-      // Debug: Check positions after shifting
-      const afterShift = await client.query(
-        'SELECT page_id, position FROM workspace_pages WHERE workspace_id = $1 ORDER BY position',
-        [workspaceId]
-      );
-      console.log(`🔍 After shift - Workspace positions:`, afterShift.rows.map(r => `${r.page_id.substring(0,8)}:${r.position}`));
+      console.log(`📊 Shifted pages up by 1 from position ${position}`);
 
       // Insert the new workspace_page relationship
       const result = await client.query(`
@@ -110,7 +85,7 @@ class WorkspacePage {
         RETURNING *
       `, [workspaceId, pageId, position, depth, isInAIContext, isCollapsed]);
 
-      console.log(`✅ Added page ${pageId} to workspace ${workspaceId} at position ${position}`);
+      console.log(`✅ Added page ${pageId.substring(0,8)} to workspace ${workspaceId.substring(0,8)} at position ${position}`);
       return new WorkspacePage(result.rows[0]);
     });
   }

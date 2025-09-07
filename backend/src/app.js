@@ -166,6 +166,8 @@ try {
   console.log('✅ Page routes loaded');
   app.use('/api/workspaces', require('./routes/workspaces'));
   console.log('✅ Workspace routes loaded');
+  app.use('/api/forms', require('./routes/forms'));
+  console.log('✅ Form routes loaded');
   app.use('/api/ai', require('./routes/ai'));
   console.log('✅ AI routes loaded');
 } catch (error) {

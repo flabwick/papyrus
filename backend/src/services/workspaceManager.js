@@ -40,14 +40,16 @@ class WorkspaceManager {
       const WorkspaceFile = require('../models/WorkspaceFile');
       const items = await WorkspaceFile.getWorkspaceItems(workspaceId);
       
-      // For backwards compatibility, separate pages and files
+      // For backwards compatibility, separate pages, files, and forms
       const pages = items.filter(item => item.itemType === 'card');
       const files = items.filter(item => item.itemType === 'file');
+      const forms = items.filter(item => item.itemType === 'form');
       
       return {
         ...workspace,
         pages: pages || [],
-        files: files || []
+        files: files || [],
+        forms: forms || []
       };
     } catch (error) {
       console.error(`❌ Failed to get workspace with pages ${workspaceId}:`, error.message);

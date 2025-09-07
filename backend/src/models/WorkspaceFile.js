@@ -147,26 +147,44 @@ class WorkspaceFile {
   }
 
   /**
-   * Get mixed workspace items (both pages and files) in position order
+   * Get mixed workspace items (pages, files, and forms) in position order
    * @param {string} workspaceId - Workspace ID
-   * @returns {Promise<Array<Object>>} - Array of mixed workspace items
+   * @returns {Promise<Array<Object>>} - Array of mixed workspace items (cards)
    */
   static async getWorkspaceItems(workspaceId) {
     const items = [];
     const Page = require('./Page');
+    const Form = require('./Form');
 
-    // Get pages from workspace
+    // Get pages from workspace (both workspace_pages and untitled pages)
     const pagesResult = await query(`
       SELECT 
         'page' as item_type,
         wp.position,
         wp.depth,
         wp.is_collapsed,
+        wp.is_in_ai_context,
         wp.added_at,
         wp.page_id,
-        null as file_id
+        null as file_id,
+        null as form_id
       FROM workspace_pages wp
       WHERE wp.workspace_id = $1
+      
+      UNION ALL
+      
+      SELECT 
+        'page' as item_type,
+        999999 as position,  -- Put untitled pages at end
+        0 as depth,
+        false as is_collapsed,
+        false as is_in_ai_context,
+        p.created_at as added_at,
+        p.id as page_id,
+        null as file_id,
+        null as form_id
+      FROM pages p
+      WHERE p.workspace_specific_id = $1 AND p.is_active = true
     `, [workspaceId]);
 
     // Get files from workspace
@@ -176,15 +194,33 @@ class WorkspaceFile {
         wf.position,
         wf.depth,
         wf.is_collapsed,
+        false as is_in_ai_context,
         wf.added_at,
         null as page_id,
-        wf.file_id
+        wf.file_id,
+        null as form_id
       FROM workspace_files wf
       WHERE wf.workspace_id = $1
     `, [workspaceId]);
 
+    // Get forms from workspace
+    const formsResult = await query(`
+      SELECT 
+        'form' as item_type,
+        wf.position,
+        wf.depth,
+        wf.is_collapsed,
+        wf.is_in_ai_context,
+        wf.added_at,
+        null as page_id,
+        null as file_id,
+        wf.form_id
+      FROM workspace_forms wf
+      WHERE wf.workspace_id = $1
+    `, [workspaceId]);
+
     // Combine and sort by position
-    const allRows = [...pagesResult.rows, ...filesResult.rows].sort((a, b) => a.position - b.position);
+    const allRows = [...pagesResult.rows, ...filesResult.rows, ...formsResult.rows].sort((a, b) => a.position - b.position);
 
     for (const row of allRows) {
       if (row.item_type === 'page') {
@@ -196,6 +232,7 @@ class WorkspaceFile {
           pageData.depth = row.depth;
           pageData.isCollapsed = row.is_collapsed;
           pageData.addedAt = row.added_at;
+          pageData.isInAIContext = row.is_in_ai_context;
           pageData.itemType = 'card';
           items.push(pageData);
         }
@@ -243,6 +280,19 @@ class WorkspaceFile {
             updatedAt: fileRow.updated_at || fileRow.uploaded_at
           };
           items.push(fileData);
+        }
+      } else if (row.item_type === 'form') {
+        // Get full form data with content
+        const form = await Form.findById(row.form_id);
+        if (form) {
+          const formData = await form.toJSON(true); // Include content for workspace forms
+          formData.position = row.position;
+          formData.depth = row.depth;
+          formData.isCollapsed = row.is_collapsed;
+          formData.addedAt = row.added_at;
+          formData.isInAIContext = row.is_in_ai_context;
+          formData.itemType = 'form';
+          items.push(formData);
         }
       }
     }
