@@ -4,6 +4,8 @@ import { useApp } from '../contexts/AppContext';
 import TextBlock from './FormBlocks/TextBlock';
 import TextboxBlock from './FormBlocks/TextboxBlock';
 import ButtonBlock from './FormBlocks/ButtonBlock';
+import ColourBlock from './FormBlocks/ColourBlock';
+import EquationBlock from './FormBlocks/EquationBlock';
 
 interface FormRendererProps {
   form: any;
@@ -155,6 +157,22 @@ const FormRenderer: React.FC<FormRendererProps> = ({
             workspaceId={workspaceId}
             formId={form.id}
             onExecute={handleButtonExecute}
+          />
+        );
+      
+      case 'colour':
+        return (
+          <ColourBlock
+            key={key}
+            block={block}
+          />
+        );
+      
+      case 'equation':
+        return (
+          <EquationBlock
+            key={key}
+            block={block}
           />
         );
       

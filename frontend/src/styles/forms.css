@@ -358,15 +358,96 @@
   margin-bottom: 0;
 }
 
-/* Text Block */
-.text-block-content {
-  color: #333333;
-  line-height: 1.5;
+/* Text Block (Markdown) */
+.text-block.markdown-block {
+  margin-bottom: 20px;
 }
 
-.text-block-content strong {
+.markdown-content {
+  color: #333333;
+  line-height: 1.6;
+}
+
+.markdown-content h1,
+.markdown-content h2,
+.markdown-content h3,
+.markdown-content h4,
+.markdown-content h5,
+.markdown-content h6 {
+  margin: 16px 0 8px 0;
+  color: #333333;
+  font-weight: 600;
+}
+
+.markdown-content h1 { font-size: 24px; }
+.markdown-content h2 { font-size: 20px; }
+.markdown-content h3 { font-size: 18px; }
+.markdown-content h4 { font-size: 16px; }
+.markdown-content h5 { font-size: 14px; }
+.markdown-content h6 { font-size: 13px; }
+
+.markdown-content p {
+  margin: 8px 0;
+}
+
+.markdown-content ul,
+.markdown-content ol {
+  margin: 8px 0;
+  padding-left: 24px;
+}
+
+.markdown-content li {
+  margin: 4px 0;
+}
+
+.markdown-content blockquote {
+  margin: 16px 0;
+  padding: 12px 16px;
+  background: #f8f9fa;
+  border-left: 4px solid #2196f3;
+  color: #555;
+}
+
+.markdown-content code {
+  background: #f6f8fa;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 13px;
+  color: #d73a49;
+}
+
+.markdown-content pre {
+  background: #f6f8fa;
+  padding: 16px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 16px 0;
+  border: 1px solid #e1e4e8;
+}
+
+.markdown-content pre code {
+  background: none;
+  padding: 0;
+  color: #333;
+}
+
+.markdown-content a {
+  color: #2196f3;
+  text-decoration: none;
+}
+
+.markdown-content a:hover {
+  text-decoration: underline;
+}
+
+.markdown-content strong {
   font-weight: 600;
   color: #333333;
+}
+
+.markdown-content em {
+  font-style: italic;
 }
 
 /* Textbox Block */
@@ -480,6 +561,99 @@
 .operation-preview small {
   color: #666666;
   font-size: 12px;
+}
+
+/* Colour Block */
+.colour-block {
+  margin-bottom: 16px;
+}
+
+.colour-block-label {
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333333;
+  font-size: 14px;
+}
+
+.colour-bar {
+  transition: box-shadow 0.2s ease, transform 0.1s ease;
+  cursor: default;
+}
+
+.colour-bar:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  transform: translateY(-1px);
+}
+
+/* Equation Block */
+.equation-block {
+  margin-bottom: 20px;
+}
+
+.equation-block-label {
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: #333333;
+  font-size: 14px;
+}
+
+.equation-content {
+  font-family: 'KaTeX_Main', 'Times New Roman', serif;
+  overflow-x: auto;
+  transition: box-shadow 0.2s ease;
+}
+
+.equation-content:hover {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.equation-content.display-mode {
+  text-align: center;
+  padding: 20px;
+}
+
+.equation-content.inline-mode {
+  display: inline-block;
+  padding: 8px 12px;
+}
+
+.equation-source {
+  margin-top: 6px;
+  padding: 4px 8px;
+  background: #f8f9fa;
+  border-radius: 4px;
+  border: 1px solid #e9ecef;
+}
+
+.equation-source code {
+  background: none;
+  color: #666;
+  font-size: 11px;
+  font-family: monospace;
+}
+
+/* KaTeX styling overrides */
+.katex {
+  font-size: 1.1em;
+}
+
+.katex-display {
+  margin: 0;
+}
+
+/* Unknown Block */
+.unknown-block {
+  padding: 16px;
+  background: #fff3cd;
+  border: 1px solid #ffeaa7;
+  border-radius: 6px;
+  margin-bottom: 16px;
+}
+
+.unknown-block .error-message {
+  color: #856404;
+  font-weight: 500;
+  margin: 0;
 }
 
 /* CSS Variables for theming */

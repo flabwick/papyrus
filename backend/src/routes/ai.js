@@ -298,7 +298,7 @@ form:
   blocks:
     - block_type: "text"
       id: "unique_id"
-      content: "Text content here"
+      content: "**Markdown** content with *formatting*"
     
     - block_type: "textbox" 
       id: "unique_id"
@@ -306,6 +306,18 @@ form:
       required: true
       placeholder: "Placeholder text"
       style: "single"
+    
+    - block_type: "colour"
+      id: "unique_id"
+      colour: "#FF5733"
+      label: "Colour Label"
+      height: 40
+    
+    - block_type: "equation"
+      id: "unique_id"
+      equation: "E = mc^2"
+      label: "Einstein's Mass-Energy Equivalence"
+      display: true
     
     - block_type: "button"
       id: "unique_id"
@@ -347,18 +359,46 @@ WORKSPACE OPERATIONS:
      prompt: "Create a form for {{purpose.value}} with relevant fields"
 
 SUPPORTED BLOCK TYPES:
-- text: Display text content
-- textbox: Text input field (style: "single" or "multi")
-- button: Action button (only workspace_operation supported)
+
+1. TEXT BLOCK - Displays markdown-formatted content:
+   - block_type: "text"
+   - content: "**Bold**, *italic*, # headers, - lists, etc."
+   - Supports full markdown syntax including links, images, code blocks
+
+2. TEXTBOX BLOCK - User input fields:
+   - block_type: "textbox"
+   - style: "single" (one line) or "multi" (textarea)
+   - required: true/false
+   - placeholder: hint text
+
+3. COLOUR BLOCK - Visual colour indicators for marking and tone:
+   - block_type: "colour"
+   - colour: "#FF5733" (hex), "rgb(255,87,51)", or "red" (named)
+   - height: pixel height (default 40)
+   - label: optional description
+   - Use for: mood indicators, priority levels, categories, status
+
+4. EQUATION BLOCK - LaTeX mathematical equations:
+   - block_type: "equation"
+   - equation: "E = mc^2" (LaTeX syntax)
+   - display: true (block mode) or false (inline mode)
+   - label: optional description
+   - Examples: "\\frac{a}{b}", "\\sum_{i=1}^{n} x_i", "\\int_0^\\infty e^{-x} dx"
+
+5. BUTTON BLOCK - Interactive actions:
+   - block_type: "button"
+   - action_type: "workspace_operation" (only supported type)
+   - workspace_operation: see above for types
 
 IMPORTANT RULES:
 1. Use ONLY the block types listed above
-2. Each block must have a unique "id" field
-3. Use snake_case for all field names
-4. For buttons, only use action_type: "workspace_operation"
-5. Reference form values using {{field_id.value}} syntax
-6. For multi-line content, use YAML literal block syntax with |
-7. Always specify position for workspace operations
+2. Each block must have a unique "id" field using snake_case
+3. TEXT blocks now support full markdown - use it for rich formatting
+4. COLOUR blocks are perfect for visual organization and mood/priority indication
+5. EQUATION blocks use LaTeX syntax - escape backslashes properly in YAML
+6. Reference form values using {{field_id.value}} syntax
+7. For multi-line content, use YAML literal block syntax with |
+8. Always specify position for workspace operations
 
 User request: ${prompt}`;
 

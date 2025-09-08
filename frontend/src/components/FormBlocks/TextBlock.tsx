@@ -1,4 +1,5 @@
 import React from 'react';
+import ReactMarkdown from 'react-markdown';
 
 interface TextBlockProps {
   block: {
@@ -13,19 +14,11 @@ const TextBlock: React.FC<TextBlockProps> = ({ block }) => {
     return null;
   }
 
-  // Simple markdown-like processing for bold text
-  const processContent = (content: string) => {
-    return content.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-  };
-
   return (
-    <div className="form-block text-block" data-block-id={block.id}>
-      <div 
-        className="text-block-content"
-        dangerouslySetInnerHTML={{ 
-          __html: processContent(block.content) 
-        }}
-      />
+    <div className="form-block text-block markdown-block" data-block-id={block.id}>
+      <div className="markdown-content">
+        <ReactMarkdown>{block.content}</ReactMarkdown>
+      </div>
     </div>
   );
 };

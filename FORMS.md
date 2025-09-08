@@ -66,13 +66,25 @@ form:
 
 ### Block Types
 
-#### 1. Text Block
-Static content display with markdown support.
+#### 1. Text Block (Markdown)
+Rich content display with full markdown support including headers, lists, links, code blocks, and formatting.
 
 ```yaml
 - block_type: "text"
   id: "unique-id"
-  content: "**Bold text** and *italic text*"
+  content: |
+    # Main Header
+    
+    **Bold text** and *italic text*
+    
+    - Bullet points
+    - [Links](https://example.com)
+    - `inline code`
+    
+    ```javascript
+    // Code blocks
+    console.log("Hello World");
+    ```
   visibility: "visible"  # optional: visible|hidden
 ```
 
@@ -93,7 +105,66 @@ User input fields with validation.
 - `single`: Single-line input field
 - `multi`: Multi-line textarea
 
-#### 3. Button Block
+#### 3. Colour Block
+Visual colour indicators for marking, tone, priority, and categorization.
+
+```yaml
+- block_type: "colour"
+  id: "priority-indicator"
+  colour: "#FF5733"           # hex, rgb(), rgba(), or named colors
+  label: "High Priority"      # optional description
+  height: 40                  # optional height in pixels (default: 40)
+  visibility: "visible"       # optional: visible|hidden
+```
+
+**Use Cases:**
+- Priority levels (red=urgent, yellow=medium, green=low)
+- Mood indicators for content tone
+- Status indicators (green=complete, yellow=in-progress, red=blocked)
+- Category color coding
+- Visual section dividers
+
+**Supported Colour Formats:**
+- Hex: `#FF5733`, `#f53`
+- RGB: `rgb(255, 87, 51)`
+- RGBA: `rgba(255, 87, 51, 0.8)`
+- Named: `red`, `blue`, `green`, `orange`, etc.
+
+#### 4. Equation Block
+LaTeX mathematical equations with proper rendering.
+
+```yaml
+- block_type: "equation"
+  id: "einstein-equation"
+  equation: "E = mc^2"        # LaTeX syntax
+  label: "Mass-Energy Equivalence"  # optional description
+  display: true               # optional: true=block mode, false=inline
+  visibility: "visible"       # optional: visible|hidden
+```
+
+**LaTeX Examples:**
+```yaml
+# Fractions
+equation: "\\frac{a}{b} = \\frac{c}{d}"
+
+# Summations
+equation: "\\sum_{i=1}^{n} x_i = x_1 + x_2 + \\cdots + x_n"
+
+# Integrals
+equation: "\\int_0^\\infty e^{-x} \\, dx = 1"
+
+# Matrices
+equation: "\\begin{pmatrix} a & b \\\\ c & d \\end{pmatrix}"
+
+# Greek letters and symbols
+equation: "\\alpha + \\beta = \\gamma \\cdot \\pi"
+```
+
+**Display Modes:**
+- `display: true` - Block mode (centered, larger)
+- `display: false` - Inline mode (smaller, flows with text)
+
+#### 5. Button Block
 Interactive buttons that trigger workspace operations.
 
 ```yaml
@@ -252,6 +323,162 @@ Form Creation
        │
        ▼
 Add to Workspace
+```
+
+## Enhanced Block Examples
+
+### Complete Form Example with New Block Types
+
+```yaml
+form:
+  title: "Research Project Planning"
+  blocks:
+    - block_type: "text"
+      id: "intro"
+      content: |
+        # Research Project Setup
+        
+        This form helps you plan and organize your research project with **visual indicators** and *mathematical formulations*.
+        
+        ## Instructions
+        1. Fill in your research details
+        2. Note the priority level indicated by colors
+        3. Review the mathematical framework
+        4. Generate your project documentation
+    
+    - block_type: "colour"
+      id: "priority_high"
+      colour: "#FF4444"
+      label: "High Priority - Urgent Research"
+      height: 50
+    
+    - block_type: "textbox"
+      id: "research_topic"
+      label: "Research Topic:"
+      required: true
+      style: "single"
+      placeholder: "Enter your research focus area"
+    
+    - block_type: "textbox"
+      id: "hypothesis"
+      label: "Research Hypothesis:"
+      required: true
+      style: "multi"
+      placeholder: "State your research hypothesis clearly"
+    
+    - block_type: "colour"
+      id: "status_planning"
+      colour: "#FFA500"
+      label: "Status: Planning Phase"
+      height: 30
+    
+    - block_type: "equation"
+      id: "sample_size"
+      equation: "n = \\frac{Z^2 \\cdot p \\cdot (1-p)}{E^2}"
+      label: "Sample Size Calculation Formula"
+      display: true
+    
+    - block_type: "text"
+      id: "formula_explanation"
+      content: |
+        Where:
+        - **n** = required sample size
+        - **Z** = confidence level (1.96 for 95%)
+        - **p** = estimated proportion
+        - **E** = margin of error
+    
+    - block_type: "equation"
+      id: "inline_example"
+      equation: "\\alpha = 0.05"
+      label: "Significance Level"
+      display: false
+    
+    - block_type: "colour"
+      id: "ready_indicator"
+      colour: "#28A745"
+      label: "Ready to Generate"
+      height: 25
+    
+    - block_type: "button"
+      id: "generate_project"
+      text: "Generate Research Framework"
+      action_type: "workspace_operation"
+      workspace_operation:
+        type: "create_card"
+        position: "below"
+        title: "Research Project: {{research_topic.value}}"
+        content: |
+          # {{research_topic.value}}
+          
+          ## Hypothesis
+          {{hypothesis.value}}
+          
+          ## Methodology Framework
+          - Sample size calculation applied
+          - Significance level: α = 0.05
+          - Statistical analysis planned
+          
+          ## Next Steps
+          - [ ] Literature review
+          - [ ] Data collection design
+          - [ ] Statistical analysis plan
+          - [ ] Timeline development
+```
+
+### Block Type Usage Patterns
+
+#### Visual Organization with Colour Blocks
+```yaml
+# Priority system
+- block_type: "colour"
+  colour: "#FF0000"
+  label: "Critical Priority"
+  
+- block_type: "colour"
+  colour: "#FFA500"
+  label: "Medium Priority"
+  
+- block_type: "colour"
+  colour: "#00FF00"
+  label: "Low Priority"
+```
+
+#### Mathematical Content with Equations
+```yaml
+# Complex mathematical expressions
+- block_type: "equation"
+  equation: "\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}"
+  label: "Gaussian Integral"
+  
+- block_type: "equation"
+  equation: "\\sum_{n=1}^{\\infty} \\frac{1}{n^2} = \\frac{\\pi^2}{6}"
+  label: "Basel Problem Solution"
+```
+
+#### Rich Text with Markdown
+```yaml
+- block_type: "text"
+  content: |
+    ## Research Methodology
+    
+    Our approach combines **quantitative analysis** with *qualitative insights*:
+    
+    1. **Data Collection**
+       - Surveys (n > 1000)
+       - Interviews (n = 50)
+       - Observational studies
+    
+    2. **Analysis Framework**
+       ```python
+       # Statistical analysis pipeline
+       import pandas as pd
+       import scipy.stats as stats
+       
+       def analyze_data(df):
+           return stats.ttest_ind(df.group1, df.group2)
+       ```
+    
+    > **Note**: All procedures follow ethical guidelines and institutional review board approval.
 ```
 
 ## API Endpoints

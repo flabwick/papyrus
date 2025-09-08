@@ -87,6 +87,12 @@ class FormDSLParser {
       case 'choice':
         return this.processChoiceBlock(block, processedBlock, index);
       
+      case 'colour':
+        return this.processColourBlock(block, processedBlock, index);
+      
+      case 'equation':
+        return this.processEquationBlock(block, processedBlock, index);
+      
       default:
         throw new Error(`Block ${index}: unsupported block_type "${block.block_type}"`);
     }
@@ -114,6 +120,44 @@ class FormDSLParser {
       options: block.options,
       required: block.required || false,
       style: block.style || 'radio' // radio or checkbox
+    };
+  }
+
+  /**
+   * Process colour block
+   */
+  static processColourBlock(block, processedBlock, index) {
+    if (!block.colour) {
+      throw new Error(`Colour block ${index}: missing "colour" field`);
+    }
+
+    // Validate colour format (hex, rgb, or named colors)
+    const colourPattern = /^(#[0-9a-fA-F]{3,6}|rgb\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*\)|rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*[\d.]+\s*\)|[a-zA-Z]+)$/;
+    if (!colourPattern.test(block.colour)) {
+      throw new Error(`Colour block ${index}: invalid colour format "${block.colour}". Use hex (#FF0000), rgb(255,0,0), or named colors`);
+    }
+
+    return {
+      ...processedBlock,
+      colour: block.colour,
+      label: block.label || '',
+      height: block.height || 40
+    };
+  }
+
+  /**
+   * Process equation block
+   */
+  static processEquationBlock(block, processedBlock, index) {
+    if (!block.equation) {
+      throw new Error(`Equation block ${index}: missing "equation" field`);
+    }
+
+    return {
+      ...processedBlock,
+      equation: block.equation,
+      label: block.label || '',
+      display: block.display !== false // Default to display mode
     };
   }
 

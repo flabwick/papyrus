@@ -291,7 +291,7 @@ const Page: React.FC<PageProps> = ({
     }
   };
 
-  // Handle inline editor content changes
+  // Handle inline editor content changes (no auto-save)
   const handleInlineContentChange = (newContent: string) => {
     console.log('[Page] Inline content changed:', { 
       newContentLength: newContent.length, 
@@ -303,25 +303,13 @@ const Page: React.FC<PageProps> = ({
     setCurrentContent(newContent);
     setFullContent(newContent);
     
-    // Force immediate save for significant content changes OR any substantial content
-    const contentDiff = Math.abs(newContent.length - (page.content || '').length);
-    if (contentDiff > 1000 || newContent.length > 100) {
-      console.log('[Page] Large content change detected, forcing immediate save');
-      // Use setTimeout to ensure state has updated
-      setTimeout(() => {
-        // Force save by passing content directly to bypass state issues
-        handleInlineAutoSave(newContent);
-      }, 100);
-    } else {
-      // Use debounced approach for small changes
-      if (autoSaveTimeoutRef.current) {
-        clearTimeout(autoSaveTimeoutRef.current);
-      }
-      
-      autoSaveTimeoutRef.current = setTimeout(() => {
-        handleInlineAutoSave();
-      }, 1000);
+    // Clear any existing auto-save timeout
+    if (autoSaveTimeoutRef.current) {
+      clearTimeout(autoSaveTimeoutRef.current);
+      autoSaveTimeoutRef.current = null;
     }
+    
+    // No auto-save - content will be saved when InlineEditor triggers onSave
   };
 
   const handleInlineAutoSave = async (contentOverride?: string) => {

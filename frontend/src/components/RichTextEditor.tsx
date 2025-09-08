@@ -196,14 +196,46 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       const html = editorRef.current.innerHTML;
       const markdown = htmlToMarkdown(html);
       
-      // Call onContentChange immediately without timeout to ensure state is updated
-      onContentChange(markdown);
+      // Store the current content but don't trigger onContentChange on every keystroke
+      // Content will be saved when user clicks out or presses Ctrl+S
+      setCurrentMarkdown(markdown);
+    }
+  };
+
+  // Add state to track current markdown content
+  const [currentMarkdown, setCurrentMarkdown] = useState(content);
+
+  // Update currentMarkdown when content prop changes
+  useEffect(() => {
+    setCurrentMarkdown(content);
+  }, [content]);
+
+  // Handle blur event to save content when user clicks out
+  const handleBlur = () => {
+    if (editorRef.current) {
+      // Get the current content directly from the DOM to ensure we have the latest
+      const html = editorRef.current.innerHTML;
+      const markdown = htmlToMarkdown(html);
+      
+      if (markdown !== content) {
+        onContentChange(markdown);
+        onSave();
+      }
     }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
+      // Get current content directly from DOM for Ctrl+S
+      if (editorRef.current) {
+        const html = editorRef.current.innerHTML;
+        const markdown = htmlToMarkdown(html);
+        
+        if (markdown !== content) {
+          onContentChange(markdown);
+        }
+      }
       onSave();
     }
   };
@@ -252,6 +284,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         contentEditable={!isLoading}
         onInput={handleInput}
         onKeyDown={handleKeyDown}
+        onBlur={handleBlur}
         onContextMenu={handleContextMenu}
         style={{
           width: '100%',
