@@ -147,6 +147,85 @@ class WorkspaceManager {
       throw error;
     }
   }
+
+  /**
+   * Move a page to a new position in a workspace
+   * @param {string} workspaceId - Workspace ID
+   * @param {string} pageId - Page ID to move
+   * @param {number} newPosition - New position for the page
+   * @param {number} newDepth - New depth for the page
+   * @returns {Promise<Object>} - Result of move operation
+   */
+  static async movePage(workspaceId, pageId, newPosition, newDepth) {
+    try {
+      const { query } = require('../models/database');
+      
+      // Check if the page exists in this workspace
+      const checkResult = await query(
+        'SELECT id, position FROM workspace_pages WHERE workspace_id = $1 AND page_id = $2',
+        [workspaceId, pageId]
+      );
+
+      if (checkResult.rows.length === 0) {
+        return { moved: false, message: 'Page not found in workspace' };
+      }
+
+      const currentPosition = checkResult.rows[0].position;
+
+      // If moving to the same position, just update depth
+      if (currentPosition === newPosition) {
+        await query(
+          'UPDATE workspace_pages SET depth = $1 WHERE workspace_id = $2 AND page_id = $3',
+          [newDepth || 0, workspaceId, pageId]
+        );
+      } else {
+        // Handle position conflicts by temporarily moving conflicting pages
+        await query('BEGIN');
+
+        try {
+          // First, move any page at the target position to a temporary negative position
+          await query(
+            'UPDATE workspace_pages SET position = -1 WHERE workspace_id = $1 AND position = $2 AND page_id != $3',
+            [workspaceId, newPosition, pageId]
+          );
+
+          // Update the target page to the new position and depth
+          await query(
+            'UPDATE workspace_pages SET position = $1, depth = $2 WHERE workspace_id = $3 AND page_id = $4',
+            [newPosition, newDepth || 0, workspaceId, pageId]
+          );
+
+          // Reorder all pages to ensure no gaps or conflicts
+          const allPages = await query(
+            'SELECT page_id, position FROM workspace_pages WHERE workspace_id = $1 ORDER BY CASE WHEN position = -1 THEN 999999 ELSE position END, page_id',
+            [workspaceId]
+          );
+
+          // Reassign positions sequentially
+          for (let i = 0; i < allPages.rows.length; i++) {
+            const page = allPages.rows[i];
+            if (page.position !== i) {
+              await query(
+                'UPDATE workspace_pages SET position = $1 WHERE workspace_id = $2 AND page_id = $3',
+                [i, workspaceId, page.page_id]
+              );
+            }
+          }
+
+          await query('COMMIT');
+        } catch (transactionError) {
+          await query('ROLLBACK');
+          throw transactionError;
+        }
+      }
+
+      console.log(`✅ Moved page ${pageId} to position ${newPosition} in workspace ${workspaceId}`);
+      return { moved: true, pageId, workspaceId, position: newPosition, depth: newDepth };
+    } catch (error) {
+      console.error(`❌ Failed to move page ${pageId} in workspace ${workspaceId}:`, error.message);
+      throw error;
+    }
+  }
 }
 
 module.exports = WorkspaceManager;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { Page as CardType, WorkspacePage as WorkspaceCard } from '../types';
 import { useApp } from '../contexts/AppContext';
@@ -10,6 +10,8 @@ import FileAddInterface from './FileAddInterface';
 import PDFPage from './PDFPage';
 import EPUBPage from './EPUBPage';
 import InlineEditor from './InlineEditor';
+import MarkdownEditor from './MarkdownEditor';
+import RichTextEditor from './RichTextEditor';
 
 interface PageProps {
   page: CardType;
@@ -83,6 +85,9 @@ const Page: React.FC<PageProps> = ({
   const [localShowAddInterface, setLocalShowAddInterface] = useState(showAddInterface || false);
   const [localShowFileAddInterface, setLocalShowFileAddInterface] = useState(showFileAddInterface || false);
   const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [editorMode, setEditorMode] = useState<'markdown' | 'richtext'>('richtext');
+  const [currentContent, setCurrentContent] = useState(page.content || page.contentPreview || '');
+  const autoSaveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Sync local state with showAddInterface prop
   useEffect(() => {
@@ -110,16 +115,31 @@ const Page: React.FC<PageProps> = ({
   );
 
   useEffect(() => {
+    console.log('[Page] Page data changed, updating local state:', {
+      pageTitle: page.title,
+      pageContentLength: page.content?.length || 0,
+      pageContentPreviewLength: page.contentPreview?.length || 0,
+      pageContentPreview: (page.content || page.contentPreview || '').substring(0, 100)
+    });
+    
     setEditTitle(page.title || '');
-    setEditContent(page.content || page.contentPreview || '');
+    const initialContent = page.content || page.contentPreview || '';
+    setEditContent(initialContent);
+    setCurrentContent(initialContent);
     // Reset full content when page changes
     setFullContent(null);
+    // Don't reset isExpanded state here - this was causing the collapse
   }, [page.title, page.content, page.contentPreview]);
 
   // Load full content when page is expanded for inline editor
   useEffect(() => {
     if (isExpanded && !fullContent && !isLoadingContent) {
-      console.log('[Page] Loading full content for inline editor');
+      console.log('[Page] Loading full content for inline editor', {
+        pageContent: page.content?.length || 0,
+        pageContentPreview: page.contentPreview?.length || 0,
+        currentContent: currentContent?.length || 0,
+        editContent: editContent?.length || 0
+      });
       loadFullContent();
     }
   }, [isExpanded, fullContent, isLoadingContent]);
@@ -130,15 +150,28 @@ const Page: React.FC<PageProps> = ({
     
     try {
       setIsLoadingContent(true);
+      console.log('[Page] Fetching full content from API for page:', pageId);
       const response = await api.get(`/pages/${pageId}`);
       const content = response.data.page.content || '';
+      console.log('[Page] API returned content:', {
+        contentLength: content.length,
+        contentPreview: content.substring(0, 100) + (content.length > 100 ? '...' : '')
+      });
       setFullContent(content);
+      setCurrentContent(content);
+      setEditContent(content);
       return content;
     } catch (error) {
       console.error('Failed to load full card content:', error);
       // Fallback to existing content
       const fallbackContent = page.content || page.contentPreview || '';
+      console.log('[Page] Using fallback content:', {
+        fallbackLength: fallbackContent.length,
+        fallbackPreview: fallbackContent.substring(0, 100) + (fallbackContent.length > 100 ? '...' : '')
+      });
       setFullContent(fallbackContent);
+      setCurrentContent(fallbackContent);
+      setEditContent(fallbackContent);
       return fallbackContent;
     } finally {
       setIsLoadingContent(false);
@@ -260,38 +293,85 @@ const Page: React.FC<PageProps> = ({
 
   // Handle inline editor content changes
   const handleInlineContentChange = (newContent: string) => {
-    console.log('[Page] Inline content changed:', { newContentLength: newContent.length });
+    console.log('[Page] Inline content changed:', { 
+      newContentLength: newContent.length, 
+      contentPreview: newContent.substring(0, 50) + (newContent.length > 50 ? '...' : '')
+    });
+    
+    // Update all content state variables immediately
     setEditContent(newContent);
+    setCurrentContent(newContent);
     setFullContent(newContent);
+    
+    // Force immediate save for significant content changes OR any substantial content
+    const contentDiff = Math.abs(newContent.length - (page.content || '').length);
+    if (contentDiff > 1000 || newContent.length > 100) {
+      console.log('[Page] Large content change detected, forcing immediate save');
+      // Use setTimeout to ensure state has updated
+      setTimeout(() => {
+        // Force save by passing content directly to bypass state issues
+        handleInlineAutoSave(newContent);
+      }, 100);
+    } else {
+      // Use debounced approach for small changes
+      if (autoSaveTimeoutRef.current) {
+        clearTimeout(autoSaveTimeoutRef.current);
+      }
+      
+      autoSaveTimeoutRef.current = setTimeout(() => {
+        handleInlineAutoSave();
+      }, 1000);
+    }
   };
 
-  // Handle inline editor auto-save
-  const handleInlineAutoSave = async () => {
-    console.log('[Page] Inline auto-save triggered');
+  const handleInlineAutoSave = async (contentOverride?: string) => {
+    console.log('[Page] Inline auto-save triggered', contentOverride ? 'with content override' : '');
     setIsAutoSaving(true);
     
+    // Wait a moment for state to update if no override provided
+    if (!contentOverride) {
+      await new Promise(resolve => setTimeout(resolve, 50));
+    }
+    
     try {
-      const currentContent = fullContent || editContent;
+      // Use override content if provided, otherwise fall back to state
+      const contentToSave = contentOverride || editContent || currentContent || fullContent || '';
       const originalContent = page.content || page.contentPreview || '';
       
-      if (currentContent !== originalContent) {
+      console.log('[Page] Auto-save content comparison:', {
+        usingOverride: !!contentOverride,
+        editContentLength: editContent?.length || 0,
+        currentContentLength: currentContent?.length || 0,
+        fullContentLength: fullContent?.length || 0,
+        contentToSaveLength: contentToSave.length,
+        originalLength: originalContent.length,
+        areEqual: contentToSave === originalContent,
+        contentToSavePreview: contentToSave.substring(0, 100) + (contentToSave.length > 100 ? '...' : ''),
+        originalPreview: originalContent.substring(0, 100) + (originalContent.length > 100 ? '...' : '')
+      });
+      
+      if (contentToSave !== originalContent || contentToSave.length > 100) {
+        console.log('[Page] Proceeding with save - content differs or is substantial');
+        
         if (!page.title) {
           // Use the special update endpoint for unsaved pages
           const response = await api.put(`/pages/${page.id}/update-with-title`, {
             title: page.title || null,
-            content: currentContent
+            content: contentToSave
           });
           
           console.log('[Page] Unsaved page content updated via API');
         } else {
           // Regular update for saved pages
-          await onUpdate(pageId, { content: currentContent });
+          await onUpdate(pageId, { content: contentToSave });
           console.log('[Page] Saved page content updated');
         }
         
         // Show save animation
         setSaveIndicatorPulse(true);
         setTimeout(() => setSaveIndicatorPulse(false), 1000);
+      } else {
+        console.log('[Page] No content changes detected, skipping save');
       }
     } catch (error) {
       console.error('[Page] Auto-save failed:', error);
@@ -603,6 +683,61 @@ const Page: React.FC<PageProps> = ({
             </>
           )}
           
+          {isExpanded && (
+            <div className="editor-mode-toggle" style={{ marginRight: '8px' }}>
+              <button
+                className={`mode-button ${editorMode === 'markdown' ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  console.log('[Page] Switching to markdown mode, current isExpanded:', isExpanded);
+                  
+                  // Set editor mode first
+                  setEditorMode('markdown');
+                  
+                  console.log('[Page] Markdown mode set, ensuring expanded state');
+                }}
+                title="Markdown Editor"
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  backgroundColor: editorMode === 'markdown' ? '#007acc' : '#f0f0f0',
+                  color: editorMode === 'markdown' ? 'white' : '#333',
+                  border: '1px solid #ccc',
+                  borderRadius: '4px 0 0 4px',
+                  cursor: 'pointer'
+                }}
+              >
+                MD
+              </button>
+              <button
+                className={`mode-button ${editorMode === 'richtext' ? 'active' : ''}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  
+                  console.log('[Page] Switching to rich text mode, current isExpanded:', isExpanded);
+                  setEditorMode('richtext');
+                  console.log('[Page] Rich text mode set');
+                }}
+                title="Rich Text Editor"
+                style={{
+                  padding: '4px 8px',
+                  fontSize: '12px',
+                  backgroundColor: editorMode === 'richtext' ? '#007acc' : '#f0f0f0',
+                  color: editorMode === 'richtext' ? 'white' : '#333',
+                  border: '1px solid #ccc',
+                  borderLeft: 'none',
+                  borderRadius: '0 4px 4px 0',
+                  cursor: 'pointer'
+                }}
+              >
+                RT
+              </button>
+            </div>
+          )}
+          
           <button
             type="button"
             className="btn btn-small"
@@ -619,14 +754,23 @@ const Page: React.FC<PageProps> = ({
 
       {isExpanded && (
         <div className="card-content">
-          {/* Inline Editor Mode - Primary editing experience */}
-          <InlineEditor
-            content={fullContent || page.content || page.contentPreview || ''}
-            onContentChange={handleInlineContentChange}
-            onSave={handleInlineAutoSave}
-            isLoading={isAutoSaving}
-            className="card-inline-editor"
-          />
+          {editorMode === 'markdown' ? (
+            <MarkdownEditor
+              content={currentContent || fullContent || page.content || page.contentPreview || ''}
+              onContentChange={handleInlineContentChange}
+              onSave={handleInlineAutoSave}
+              isLoading={isAutoSaving}
+              className="card-markdown-editor"
+            />
+          ) : (
+            <RichTextEditor
+              content={currentContent || fullContent || page.content || page.contentPreview || ''}
+              onContentChange={handleInlineContentChange}
+              onSave={handleInlineAutoSave}
+              isLoading={isAutoSaving}
+              className="card-rich-text-editor"
+            />
+          )}
         </div>
       )}
       

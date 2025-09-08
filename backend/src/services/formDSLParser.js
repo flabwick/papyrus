@@ -84,9 +84,37 @@ class FormDSLParser {
       case 'button':
         return this.processButtonBlock(block, processedBlock, index);
       
+      case 'choice':
+        return this.processChoiceBlock(block, processedBlock, index);
+      
       default:
         throw new Error(`Block ${index}: unsupported block_type "${block.block_type}"`);
     }
+  }
+
+  /**
+   * Process choice block
+   */
+  static processChoiceBlock(block, processedBlock, index) {
+    if (!block.label) {
+      throw new Error(`Choice block ${index}: missing "label" field`);
+    }
+
+    if (!block.options || !Array.isArray(block.options)) {
+      throw new Error(`Choice block ${index}: missing or invalid "options" array`);
+    }
+
+    if (block.options.length === 0) {
+      throw new Error(`Choice block ${index}: "options" array cannot be empty`);
+    }
+
+    return {
+      ...processedBlock,
+      label: block.label,
+      options: block.options,
+      required: block.required || false,
+      style: block.style || 'radio' // radio or checkbox
+    };
   }
 
   /**

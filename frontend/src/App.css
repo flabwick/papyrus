@@ -4128,9 +4128,6 @@ body {
 }
 
 .inline-editor-line.editing {
-  background-color: var(--inline-editor-edit-bg);
-  border: 2px solid var(--inline-editor-focus-border);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
   cursor: default;
 }
 
@@ -4283,8 +4280,7 @@ body {
 
 /* Focus indicators for accessibility */
 .inline-editor-line:focus-within {
-  outline: 2px solid var(--inline-editor-focus-border);
-  outline-offset: 2px;
+  outline: none;
 }
 
 /* Smooth transitions */
@@ -4367,4 +4363,268 @@ body {
 .card-content .card-inline-editor {
   border: none;
   background: transparent;
+}
+
+/* ===== HEADING COLLAPSE STYLES ===== */
+
+/* Collapsible heading container */
+.collapsible-heading {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin: 0;
+  padding: 0;
+}
+
+/* Collapse toggle icon */
+.heading-collapse-icon {
+  position: absolute;
+  left: -24px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: all 250ms ease-out;
+  user-select: none;
+  z-index: 10;
+  
+  /* Touch-friendly hit target */
+  padding: 14px;
+  margin: -14px;
+  border-radius: 4px;
+}
+
+.heading-collapse-icon:hover {
+  opacity: 0.9;
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+.heading-collapse-icon:focus {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Icon sizes for different heading levels */
+.heading-collapse-icon.h1 {
+  font-size: 14px;
+  left: -26px;
+}
+
+.heading-collapse-icon.h2 {
+  font-size: 12px;
+  left: -24px;
+}
+
+.heading-collapse-icon.h3,
+.heading-collapse-icon.h4,
+.heading-collapse-icon.h5,
+.heading-collapse-icon.h6 {
+  font-size: 10px;
+  left: -22px;
+}
+
+/* Chevron rotation states */
+.heading-collapse-icon .chevron {
+  transition: transform 250ms ease-out;
+  transform-origin: center;
+}
+
+.heading-collapse-icon.collapsed .chevron {
+  transform: rotate(90deg);
+}
+
+.heading-collapse-icon.expanded .chevron {
+  transform: rotate(0deg);
+}
+
+/* Collapsed content container */
+.collapsed-content {
+  overflow: hidden;
+  transition: all 300ms ease-out;
+  transform-origin: top;
+}
+
+.collapsed-content.collapsing {
+  max-height: 0;
+  opacity: 0;
+  transform: scaleY(0);
+  margin: 0;
+  padding: 0;
+}
+
+.collapsed-content.expanding {
+  opacity: 1;
+  transform: scaleY(1);
+}
+
+/* Content folding indicator */
+.collapsed-indicator {
+  display: inline-block;
+  margin-left: 8px;
+  font-style: italic;
+  opacity: 0.8;
+  font-size: 0.9em;
+  color: var(--text-primary);
+  transition: opacity 200ms ease-out;
+}
+
+.collapsed-indicator:hover {
+  opacity: 1;
+}
+
+/* Heading with collapse functionality */
+.inline-editor-line.heading {
+  position: relative;
+  padding-left: 32px; /* Space for collapse icon */
+}
+
+.inline-editor-line.heading.h1 {
+  padding-left: 36px;
+}
+
+.inline-editor-line.heading.h2 {
+  padding-left: 34px;
+}
+
+.inline-editor-line.heading.h3,
+.inline-editor-line.heading.h4,
+.inline-editor-line.heading.h5,
+.inline-editor-line.heading.h6 {
+  padding-left: 32px;
+}
+
+/* Smooth transitions for heading lines */
+.inline-editor-line.heading {
+  transition: all 200ms ease-out;
+}
+
+/* Collapsed section styling */
+.inline-editor-line.collapsed-line {
+  display: none;
+  opacity: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: all 300ms ease-out;
+}
+
+/* Animation keyframes for smooth expand/collapse */
+@keyframes slideDown {
+  from {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    max-height: 1000px;
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes slideUp {
+  from {
+    max-height: 1000px;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  to {
+    max-height: 0;
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+}
+
+.expanding-line {
+  animation: slideDown 300ms ease-out forwards;
+}
+
+.collapsing-line {
+  animation: slideUp 300ms ease-out forwards;
+}
+
+/* Performance optimizations */
+.inline-editor-line.heading .heading-collapse-icon {
+  will-change: transform, opacity;
+}
+
+.collapsed-content {
+  will-change: max-height, opacity, transform;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .heading-collapse-icon {
+    opacity: 1;
+    border: 1px solid currentColor;
+  }
+  
+  .heading-collapse-icon:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .heading-collapse-icon,
+  .heading-collapse-icon .chevron,
+  .collapsed-content,
+  .collapsed-indicator,
+  .inline-editor-line.heading {
+    transition: none;
+  }
+  
+  .expanding-line,
+  .collapsing-line {
+    animation: none;
+  }
+  
+  @keyframes slideDown {
+    from, to {
+      max-height: none;
+      opacity: 1;
+      transform: none;
+    }
+  }
+  
+  @keyframes slideUp {
+    from, to {
+      max-height: 0;
+      opacity: 0;
+      transform: none;
+    }
+  }
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .heading-collapse-icon {
+    left: -20px;
+    padding: 16px;
+    margin: -16px;
+  }
+  
+  .heading-collapse-icon.h1 {
+    left: -22px;
+  }
+  
+  .heading-collapse-icon.h2 {
+    left: -21px;
+  }
+  
+  .inline-editor-line.heading {
+    padding-left: 28px;
+  }
+  
+  .inline-editor-line.heading.h1 {
+    padding-left: 32px;
+  }
+  
+  .inline-editor-line.heading.h2 {
+    padding-left: 30px;
+  }
 }

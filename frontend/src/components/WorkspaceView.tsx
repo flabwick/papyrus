@@ -356,11 +356,35 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
       
       // Update server in background
       try {
-        await api.put(`/pages/${cardId}`, updates);
-        // Server updated successfully, optimistic update was correct
+        const response = await api.put(`/pages/${cardId}`, updates);
         
-        // Sync AI context state after successful update
-        syncAIContextFromWorkspace(newWorkspaceItems);
+        // If the server response includes updated page data, use it to ensure consistency
+        if (response.data && response.data.page) {
+          const serverPage = response.data.page;
+          const finalWorkspaceItems = workspaceItems.map(item => {
+            if (item.itemType === 'card') {
+              const currentCardId = item.cardId || item.id;
+              if (currentCardId === cardId) {
+                return {
+                  ...item,
+                  ...serverPage,
+                  // Preserve workspace-specific fields
+                  position: item.position,
+                  workspacePageId: item.workspacePageId,
+                  itemType: item.itemType
+                };
+              }
+            }
+            return item;
+          });
+          setWorkspaceItems(finalWorkspaceItems);
+          
+          // Sync AI context state after successful update
+          syncAIContextFromWorkspace(finalWorkspaceItems);
+        } else {
+          // Server updated successfully, optimistic update was correct
+          syncAIContextFromWorkspace(newWorkspaceItems);
+        }
       } catch (serverError) {
         // Revert optimistic update on server error
         setWorkspaceItems(originalWorkspaceItems);

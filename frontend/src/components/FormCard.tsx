@@ -148,6 +148,13 @@ const FormCard: React.FC<FormCardProps> = ({
           ) : (
             <>
               <button
+                onClick={() => setIsEditing(true)}
+                className="edit-btn"
+                title="Edit form DSL"
+              >
+                ✏️
+              </button>
+              <button
                 onClick={handleToggleAI}
                 className={`ai-btn ${form.isInAIContext ? 'active' : ''}`}
                 title={form.isInAIContext ? 'Remove from AI context' : 'Add to AI context'}

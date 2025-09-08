@@ -9,6 +9,7 @@ interface InlineEditorProps {
   className?: string;
   onError?: (error: string) => void;
   maxLines?: number;
+  pageId?: string;
 }
 
 interface EditableLine {
@@ -27,7 +28,8 @@ const InlineEditor: React.FC<InlineEditorProps> = ({
   isLoading = false,
   className = '',
   onError,
-  maxLines = 10000
+  maxLines = 10000,
+  pageId = 'unknown'
 }) => {
   const [lines, setLines] = useState<EditableLine[]>([]);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
@@ -250,10 +252,148 @@ const InlineEditor: React.FC<InlineEditorProps> = ({
       setEditingLineId(null);
       setEditingContent('');
       event.preventDefault();
-    } else if (event.key === 'Enter' && !event.shiftKey && !lines.find(l => l.id === editingLineId)?.isMultiLine) {
-      debugLog('Enter pressed on single line, saving');
-      saveCurrentEdit();
-      event.preventDefault();
+    } else if (event.key === 'Enter' && !event.shiftKey) {
+      // Allow Enter to create new lines instead of saving
+      return;
+    } else if (event.key === 'Backspace' || event.key === 'Delete') {
+      const textarea = event.target as HTMLTextAreaElement;
+      const cursorPos = textarea.selectionStart;
+      const content = textarea.value;
+      const lines = content.split('\n');
+      
+      // Find current line info
+      const beforeCursor = content.substring(0, cursorPos);
+      const currentLineIndex = beforeCursor.split('\n').length - 1;
+      const currentLine = lines[currentLineIndex];
+      const cursorPosInLine = beforeCursor.split('\n')[currentLineIndex]?.length || 0;
+      
+      debugLog(`Delete/Backspace debug:`, {
+        key: event.key,
+        cursorPos,
+        currentLineIndex,
+        currentLine: currentLine,
+        currentLineLength: currentLine.length,
+        currentLineTrimmed: currentLine.trim(),
+        cursorPosInLine,
+        linesLength: lines.length,
+        fullContentLength: content.length,
+        fullContentLines: content.split('\n').length,
+        isEmptyLine: currentLine.trim() === ''
+      });
+      
+      // Handle backspace at start of line
+      if (event.key === 'Backspace' && cursorPosInLine === 0 && currentLineIndex > 0) {
+        // Merge with previous line
+        const prevLineLength = lines[currentLineIndex - 1].length;
+        lines[currentLineIndex - 1] += lines[currentLineIndex];
+        lines.splice(currentLineIndex, 1);
+        
+        const newContent = lines.join('\n');
+        setEditingContent(newContent);
+        onContentChange(newContent); // Trigger content change callback
+        
+        // Position cursor at junction point
+        setTimeout(() => {
+          const newCursorPos = lines.slice(0, currentLineIndex - 1).join('\n').length + 
+                              (currentLineIndex > 1 ? 1 : 0) + prevLineLength;
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+        }, 0);
+        
+        event.preventDefault();
+      }
+      // Handle delete on empty or whitespace-only line
+      else if (event.key === 'Delete' && currentLine.length === 0 && lines.length > 1) {
+        debugLog('Delete on empty line triggered');
+        
+        // Always move cursor to end of previous line when deleting empty line
+        const prevLineLength = currentLineIndex > 0 ? lines[currentLineIndex - 1].length : 0;
+        
+        // Remove the empty line
+        lines.splice(currentLineIndex, 1);
+        const newContent = lines.join('\n');
+        setEditingContent(newContent);
+        onContentChange(newContent); // Trigger content change callback
+        
+        setTimeout(() => {
+          let newCursorPos;
+          if (currentLineIndex > 0) {
+            // Move to end of previous line
+            newCursorPos = lines.slice(0, currentLineIndex - 1).join('\n').length + 
+                          (currentLineIndex > 1 ? 1 : 0) + prevLineLength;
+          } else {
+            // If we deleted the first line, move to start of new first line
+            newCursorPos = 0;
+          }
+          debugLog('Setting cursor position:', { newCursorPos, prevLineLength });
+          textarea.setSelectionRange(newCursorPos, newCursorPos);
+        }, 0);
+        
+        event.preventDefault();
+      }
+      // Handle backspace/delete on empty line
+      else if ((event.key === 'Backspace' || event.key === 'Delete') && currentLine.length === 0) {
+        debugLog('Backspace/Delete on empty line triggered');
+        
+        if (lines.length > 1) {
+          // Multiple lines - remove empty line and move cursor appropriately
+          if (currentLineIndex > 0) {
+            // Not first line - move to end of previous line
+            const prevLineLength = lines[currentLineIndex - 1].length;
+            lines.splice(currentLineIndex, 1);
+            const newContent = lines.join('\n');
+            setEditingContent(newContent);
+            onContentChange(newContent); // Trigger content change callback
+            
+            setTimeout(() => {
+              const newCursorPos = lines.slice(0, currentLineIndex - 1).join('\n').length + 
+                                  (currentLineIndex > 1 ? 1 : 0) + prevLineLength;
+              debugLog('Setting cursor position:', { newCursorPos, prevLineLength });
+              textarea.setSelectionRange(newCursorPos, newCursorPos);
+            }, 0);
+          } else {
+            // First line - just remove it, cursor stays at start
+            lines.splice(0, 1);
+            const newContent = lines.join('\n');
+            setEditingContent(newContent);
+            onContentChange(newContent); // Trigger content change callback
+            
+            setTimeout(() => {
+              textarea.setSelectionRange(0, 0);
+            }, 0);
+          }
+        } else if (lines.length === 1 && currentLine.length === 0) {
+          // Single empty line - this should not happen in normal editing
+          // But if it does, we need to check if there are other lines in the full content
+          debugLog('Single empty line case - checking full content context');
+          
+          // Get the full content to see if this is part of a larger document
+          const fullLines = content.split('\n');
+          if (fullLines.length > 1) {
+            // There are other lines, remove this empty line
+            fullLines.splice(currentLineIndex, 1);
+            const newContent = fullLines.join('\n');
+            setEditingContent(newContent);
+            onContentChange(newContent);
+            
+            // Exit edit mode and let the parent re-render
+            setTimeout(() => {
+              setEditingLineId(null);
+              setEditingContent('');
+            }, 10);
+          } else {
+            // Truly single line document - clear it
+            setEditingContent('');
+            onContentChange('');
+            
+            setTimeout(() => {
+              setEditingLineId(null);
+              setEditingContent('');
+            }, 10);
+          }
+        }
+        
+        event.preventDefault();
+      }
     } else if ((event.ctrlKey || event.metaKey) && event.key === 's') {
       debugLog('Ctrl+S pressed, force saving');
       saveCurrentEdit();

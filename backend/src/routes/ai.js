@@ -290,8 +290,79 @@ router.post('/generate-form', requireAuth, async (req, res) => {
       });
     }
     
-    // Generate form DSL using AI
-    const aiResponse = await aiService.generateContent(prompt, selectedModel.id);
+    // Generate form DSL using AI with specific instructions
+    const formSystemPrompt = `You are a form DSL generator. Create a YAML form definition that follows this EXACT format:
+
+form:
+  title: "Form Title"
+  blocks:
+    - block_type: "text"
+      id: "unique_id"
+      content: "Text content here"
+    
+    - block_type: "textbox" 
+      id: "unique_id"
+      label: "Input label"
+      required: true
+      placeholder: "Placeholder text"
+      style: "single"
+    
+    - block_type: "button"
+      id: "unique_id"
+      text: "Button text"
+      action_type: "workspace_operation"
+      workspace_operation:
+        type: "create_card"
+        position: "below"
+        title: "Result: {{field_id.value}}"
+        content: |
+          # Generated Content
+          
+          User input: {{field_id.value}}
+
+WORKSPACE OPERATIONS:
+
+1. CREATE_CARD - Creates new pages with template content:
+   workspace_operation:
+     type: "create_card"
+     position: "below"        # above|below|top|bottom
+     title: "Page: {{field.value}}"
+     content: |
+       # {{title_field.value}}
+       
+       Content with {{variable.value}} substitution.
+
+2. GENERATE (Page) - AI-powered page generation with streaming:
+   workspace_operation:
+     type: "generate"
+     output_type: "page"
+     position: "below"
+     prompt: "Write about {{topic.value}} using {{method.value}}"
+
+3. GENERATE (Form) - AI-powered form generation:
+   workspace_operation:
+     type: "generate"
+     output_type: "form"
+     position: "below"
+     prompt: "Create a form for {{purpose.value}} with relevant fields"
+
+SUPPORTED BLOCK TYPES:
+- text: Display text content
+- textbox: Text input field (style: "single" or "multi")
+- button: Action button (only workspace_operation supported)
+
+IMPORTANT RULES:
+1. Use ONLY the block types listed above
+2. Each block must have a unique "id" field
+3. Use snake_case for all field names
+4. For buttons, only use action_type: "workspace_operation"
+5. Reference form values using {{field_id.value}} syntax
+6. For multi-line content, use YAML literal block syntax with |
+7. Always specify position for workspace operations
+
+User request: ${prompt}`;
+
+    const aiResponse = await aiService.generateContent(formSystemPrompt, selectedModel.id);
     
     // Create timestamp for form title
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
