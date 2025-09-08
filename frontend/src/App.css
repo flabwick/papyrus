@@ -48,6 +48,12 @@
   --spacing-sm: 12px;
   --spacing-md: 18px;
   --spacing-lg: 24px;
+
+  /* Inline Editor */
+  --inline-editor-transition: all 0.2s ease-in-out;
+  --inline-editor-hover-bg: #f9fafb;
+  --inline-editor-focus-border: #3b82f6;
+  --inline-editor-edit-bg: #ffffff;
   
   /* PDF Viewer Colors */
   --pdf-controls-bg: #f8f9fa;
@@ -4091,6 +4097,274 @@ body {
   border-radius: 4px;
   padding: 8px;
   margin: 0;
-  max-height: 200px;
-  overflow-y: auto;
+}
+
+/* ===== INLINE EDITOR STYLES ===== */
+
+.inline-editor {
+  position: relative;
+  width: 100%;
+  font-family: var(--font-family);
+  font-size: var(--font-size-body);
+  line-height: var(--line-height-body);
+}
+
+.inline-editor-content {
+  position: relative;
+}
+
+.inline-editor-line {
+  position: relative;
+  margin: 0;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: var(--inline-editor-transition);
+  min-height: 24px;
+  cursor: text;
+}
+
+.inline-editor-line:hover:not(.editing) {
+  background-color: var(--inline-editor-hover-bg);
+}
+
+.inline-editor-line.editing {
+  background-color: var(--inline-editor-edit-bg);
+  border: 2px solid var(--inline-editor-focus-border);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  cursor: default;
+}
+
+.inline-editor-line.single-line {
+  border-radius: 4px;
+}
+
+.inline-editor-line.multi-line {
+  border-radius: 6px;
+  padding: 8px 12px;
+}
+
+.inline-editor-input {
+  width: 100%;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: inherit;
+  line-height: inherit;
+  color: var(--text-primary);
+  resize: none;
+  padding: 0;
+  margin: 0;
+  overflow: hidden;
+}
+
+.inline-editor-input:focus {
+  outline: none;
+}
+
+/* Auto-resize textarea */
+.inline-editor-input {
+  field-sizing: content;
+}
+
+/* Fallback for browsers without field-sizing support */
+@supports not (field-sizing: content) {
+  .inline-editor-input {
+    overflow-y: hidden;
+    resize: none;
+  }
+}
+
+.empty-line-placeholder {
+  color: #9ca3af;
+  font-style: italic;
+  min-height: 20px;
+  padding: 2px 0;
+  user-select: none;
+}
+
+.empty-line-placeholder:hover {
+  color: #6b7280;
+}
+
+.inline-editor-loading {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #f3f4f6;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #6b7280;
+  z-index: 10;
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* Markdown content in view mode */
+.inline-editor-line h1,
+.inline-editor-line h2,
+.inline-editor-line h3,
+.inline-editor-line h4,
+.inline-editor-line h5,
+.inline-editor-line h6 {
+  margin: 0;
+  padding: 0;
+  font-weight: var(--font-weight-title);
+}
+
+.inline-editor-line h1 { font-size: 1.5em; }
+.inline-editor-line h2 { font-size: 1.3em; }
+.inline-editor-line h3 { font-size: 1.1em; }
+.inline-editor-line h4 { font-size: 1em; }
+.inline-editor-line h5 { font-size: 0.9em; }
+.inline-editor-line h6 { font-size: 0.8em; }
+
+.inline-editor-line p {
+  margin: 0;
+  padding: 0;
+}
+
+.inline-editor-line ul,
+.inline-editor-line ol {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.inline-editor-line li {
+  margin: 0;
+}
+
+.inline-editor-line code {
+  background: #f3f4f6;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+}
+
+.inline-editor-line pre {
+  background: #f8f9fa;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 12px;
+  margin: 0;
+  overflow-x: auto;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+  font-size: 0.9em;
+}
+
+.inline-editor-line pre code {
+  background: none;
+  padding: 0;
+  border-radius: 0;
+}
+
+.inline-editor-line blockquote {
+  border-left: 4px solid #e5e7eb;
+  padding-left: 12px;
+  margin: 0;
+  color: #6b7280;
+  font-style: italic;
+}
+
+.inline-editor-line a {
+  color: var(--focus-ring);
+  text-decoration: none;
+}
+
+.inline-editor-line a:hover {
+  text-decoration: underline;
+}
+
+/* Focus indicators for accessibility */
+.inline-editor-line:focus-within {
+  outline: 2px solid var(--inline-editor-focus-border);
+  outline-offset: 2px;
+}
+
+/* Smooth transitions */
+.inline-editor-line {
+  transition: background-color 0.15s ease-in-out, 
+              border-color 0.15s ease-in-out,
+              box-shadow 0.15s ease-in-out;
+}
+
+/* Performance optimizations for large documents */
+.inline-editor-content {
+  contain: layout style;
+}
+
+.inline-editor-line {
+  contain: layout;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+  .inline-editor-line {
+    padding: 6px 12px;
+  }
+  
+  .inline-editor-line.multi-line {
+    padding: 10px 16px;
+  }
+  
+  .inline-editor-input {
+    font-size: 16px; /* Prevent zoom on iOS */
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .inline-editor-line:hover:not(.editing) {
+    background-color: #e5e7eb;
+  }
+  
+  .inline-editor-line.editing {
+    border-color: #000000;
+  }
+  
+  .empty-line-placeholder {
+    color: #374151;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .inline-editor-line {
+    transition: none;
+  }
+  
+  .inline-editor-loading {
+    animation: none;
+  }
+}
+
+/* Card-specific inline editor styles */
+.card-inline-editor {
+  margin: 0;
+  padding: 8px 0;
+}
+
+.card-inline-editor .inline-editor-line {
+  margin: 2px 0;
+  padding: 6px 12px;
+}
+
+.card-inline-editor .inline-editor-line:first-child {
+  margin-top: 0;
+}
+
+.card-inline-editor .inline-editor-line:last-child {
+  margin-bottom: 0;
+}
+
+/* Ensure smooth integration with existing card styles */
+.card-content .card-inline-editor {
+  border: none;
+  background: transparent;
 }

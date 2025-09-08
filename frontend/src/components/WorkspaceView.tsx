@@ -407,7 +407,7 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
       
       // Update server in background - use hard delete to completely remove from library
       try {
-        await api.delete(`/cards/${cardId}?hard=true`);
+        await api.delete(`/pages/${cardId}?hard=true`);
         // Server updated successfully, optimistic update was correct
       } catch (serverError) {
         // Revert optimistic update on server error
@@ -610,6 +610,57 @@ const WorkspaceView: React.FC<WorkspaceViewProps> = ({ workspaceId, libraryId })
 
   const handleCancelAdd = () => {
     setActiveCardIdForAdd(null);
+  };
+
+  const handleGenerateFormBelow = async (afterPosition: number, prompt: string, model: string) => {
+    try {
+      // Add DSL instructions to the prompt for form generation
+      const dslInstructions = `\n\nIMPORTANT: Respond ONLY with valid YAML form DSL. Use this format:
+
+form:
+  title: "Your Form Title"
+  blocks:
+    - block_type: "text"
+      id: "intro"
+      content: "Introduction text"
+    - block_type: "textbox"
+      id: "field1"
+      label: "Field Label:"
+      required: true
+      style: "single"
+      placeholder: "Enter value"
+    - block_type: "button"
+      id: "submit"
+      text: "Submit"
+      action_type: "workspace_operation"
+      workspace_operation:
+        type: "create_card"
+        title: "Result: {{field1.value}}"
+        content: "Generated content"
+
+Do not include any explanation or markdown formatting, just the YAML.`;
+
+      const fullPrompt = prompt + dslInstructions;
+
+      // Generate form DSL using AI
+      const response = await api.post('/ai/generate-form', {
+        libraryId: libraryId,
+        workspaceId: workspaceId,
+        prompt: fullPrompt,
+        model: model,
+        position: afterPosition
+      });
+
+      console.log('✅ Form generated successfully');
+      
+      // Reload workspace to show new form
+      await loadWorkspace();
+      
+    } catch (error: any) {
+      console.error('❌ Form generation error:', error);
+      const errorMessage = error.response?.data?.error || 'Failed to generate form';
+      setGlobalError(errorMessage);
+    }
   };
 
   const handleGenerateCardBelow = async (afterPosition: number, prompt: string, model: string) => {
@@ -1335,13 +1386,73 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
                   border: '1px solid #d1d5db', 
                   borderRadius: '6px',
                   fontSize: '12px',
-                  color: '#374151'
+                  color: '#6b7280'
                 }}>
                   <strong>AI Context:</strong> {totalPages} pages • ~{totalTokens.toLocaleString()} tokens
                 </div>
               );
             })()}
           </div>
+          
+          {/* Output Type Selection */}
+          <div style={{ marginBottom: '12px' }}>
+            <label style={{ display: 'block', marginBottom: '6px', fontWeight: '500' }}>Output Type:</label>
+            <select
+              id="command-generate-output-type"
+              style={{
+                padding: '8px 12px',
+                border: '1px solid var(--border-medium)',
+                borderRadius: '6px',
+                fontFamily: 'var(--font-family)',
+                fontSize: '14px',
+                background: 'var(--bg-card)',
+                minWidth: '150px',
+                marginRight: '12px'
+              }}
+              defaultValue="page"
+              onChange={(e) => {
+                const promptTextarea = document.getElementById('command-generate-prompt') as HTMLTextAreaElement;
+                const outputType = e.target.value;
+                if (outputType === 'form' && promptTextarea) {
+                  // Update placeholder and add DSL guidance for forms
+                  promptTextarea.placeholder = "Describe the form you want to create (e.g., 'Create a contact form with name, email, and message fields')...";
+                } else if (promptTextarea) {
+                  promptTextarea.placeholder = "Enter your prompt for AI generation...";
+                }
+              }}
+            >
+              <option value="page">Page</option>
+              <option value="form">Form</option>
+            </select>
+            <span style={{ fontSize: '12px', color: '#6b7280' }}>
+              Choose whether to generate a page with content or an interactive form
+            </span>
+          </div>
+
+          {/* Form DSL Instructions */}
+          {(() => {
+            const outputTypeSelect = document.getElementById('command-generate-output-type') as HTMLSelectElement;
+            const isFormSelected = outputTypeSelect?.value === 'form';
+            return isFormSelected ? (
+              <div style={{
+                marginBottom: '12px',
+                padding: '12px',
+                background: '#f8f9fa',
+                border: '1px solid #e9ecef',
+                borderRadius: '6px',
+                fontSize: '12px',
+                color: '#495057'
+              }}>
+                <strong>Form Generation:</strong> Describe the form you want to create. The AI will generate it using YAML DSL format with text blocks, input fields, and action buttons. Examples:
+                <ul style={{ margin: '8px 0', paddingLeft: '16px' }}>
+                  <li>"Create a survey form with rating questions"</li>
+                  <li>"Build a contact form with validation"</li>
+                  <li>"Make a project planning form with multiple sections"</li>
+                </ul>
+              </div>
+            ) : null;
+          })()}
+          
           <textarea
             placeholder="Enter your prompt for AI generation..."
             style={{
@@ -1384,10 +1495,17 @@ Note: Real AI integration requires proper nginx configuration to forward /api/ai
               onClick={(e) => {
                 const textarea = document.getElementById('command-generate-prompt') as HTMLTextAreaElement;
                 const modelSelect = document.getElementById('command-generate-model') as HTMLSelectElement;
+                const outputTypeSelect = document.getElementById('command-generate-output-type') as HTMLSelectElement;
                 const prompt = textarea?.value;
                 const model = modelSelect?.value || 'claude-3-5-sonnet-20241022';
+                const outputType = outputTypeSelect?.value || 'page';
+                
                 if (prompt?.trim()) {
-                  handleGenerateCardBelow(workspaceItems.length, prompt, model);
+                  if (outputType === 'form') {
+                    handleGenerateFormBelow(workspaceItems.length, prompt, model);
+                  } else {
+                    handleGenerateCardBelow(workspaceItems.length, prompt, model);
+                  }
                   setShowCommandGenerate(false);
                 }
               }}

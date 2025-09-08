@@ -9,6 +9,7 @@ import FileUploadInterface from './FileUploadInterface';
 import FileAddInterface from './FileAddInterface';
 import PDFPage from './PDFPage';
 import EPUBPage from './EPUBPage';
+import InlineEditor from './InlineEditor';
 
 interface PageProps {
   page: CardType;
@@ -81,6 +82,7 @@ const Page: React.FC<PageProps> = ({
   const [showGenerateInterface, setShowGenerateInterface] = useState(false);
   const [localShowAddInterface, setLocalShowAddInterface] = useState(showAddInterface || false);
   const [localShowFileAddInterface, setLocalShowFileAddInterface] = useState(showFileAddInterface || false);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
 
   // Sync local state with showAddInterface prop
   useEffect(() => {
@@ -92,7 +94,6 @@ const Page: React.FC<PageProps> = ({
     setLocalShowFileAddInterface(showFileAddInterface || false);
   }, [showFileAddInterface]);
   const [editTitle, setEditTitle] = useState(page.title || '');
-  const [isEditingContent, setIsEditingContent] = useState(false);
   const [titleError, setTitleError] = useState<string | null>(null);
   const { aiContextPages, toggleAIContext } = useApp();
 
@@ -114,6 +115,14 @@ const Page: React.FC<PageProps> = ({
     // Reset full content when page changes
     setFullContent(null);
   }, [page.title, page.content, page.contentPreview]);
+
+  // Load full content when page is expanded for inline editor
+  useEffect(() => {
+    if (isExpanded && !fullContent && !isLoadingContent) {
+      console.log('[Page] Loading full content for inline editor');
+      loadFullContent();
+    }
+  }, [isExpanded, fullContent, isLoadingContent]);
 
   // Load full content when editing starts
   const loadFullContent = async () => {
@@ -247,14 +256,54 @@ const Page: React.FC<PageProps> = ({
         setTimeout(() => setSaveIndicatorPulse(false), 1000);
       }
     }
-    setIsEditingContent(false);
+  };
+
+  // Handle inline editor content changes
+  const handleInlineContentChange = (newContent: string) => {
+    console.log('[Page] Inline content changed:', { newContentLength: newContent.length });
+    setEditContent(newContent);
+    setFullContent(newContent);
+  };
+
+  // Handle inline editor auto-save
+  const handleInlineAutoSave = async () => {
+    console.log('[Page] Inline auto-save triggered');
+    setIsAutoSaving(true);
+    
+    try {
+      const currentContent = fullContent || editContent;
+      const originalContent = page.content || page.contentPreview || '';
+      
+      if (currentContent !== originalContent) {
+        if (!page.title) {
+          // Use the special update endpoint for unsaved pages
+          const response = await api.put(`/pages/${page.id}/update-with-title`, {
+            title: page.title || null,
+            content: currentContent
+          });
+          
+          console.log('[Page] Unsaved page content updated via API');
+        } else {
+          // Regular update for saved pages
+          await onUpdate(pageId, { content: currentContent });
+          console.log('[Page] Saved page content updated');
+        }
+        
+        // Show save animation
+        setSaveIndicatorPulse(true);
+        setTimeout(() => setSaveIndicatorPulse(false), 1000);
+      }
+    } catch (error) {
+      console.error('[Page] Auto-save failed:', error);
+    } finally {
+      setIsAutoSaving(false);
+    }
   };
 
   const handleContentKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Escape') {
       const contentToRestore = fullContent || page.content || page.contentPreview || '';
       setEditContent(contentToRestore);
-      setIsEditingContent(false);
       // Also cancel title editing
       setEditTitle(page.title || '');
       setIsEditingTitle(false);
@@ -463,15 +512,14 @@ const Page: React.FC<PageProps> = ({
             className="btn btn-small"
             onClick={async (e) => {
               e.stopPropagation();
-              // Load full content before editing
+              // Load full content for inline editor
               const content = await loadFullContent();
               setEditContent(content);
-              setIsEditingContent(true);
               // Always show title as editable when editing content
               setIsEditingTitle(true);
             }}
             disabled={isLoadingContent}
-            title="Edit card"
+            title="Edit page"
           >
             {isLoadingContent ? '🔄' : '✏️'}
           </button>
@@ -571,90 +619,14 @@ const Page: React.FC<PageProps> = ({
 
       {isExpanded && (
         <div className="card-content">
-          {isEditingContent ? (
-            <div>
-              <textarea
-                value={editContent}
-                onChange={(e) => setEditContent(e.target.value)}
-                onKeyDown={handleContentKeyDown}
-                className="form-input form-textarea"
-                style={{ 
-                  width: '100%', 
-                  marginBottom: '12px',
-                  minHeight: editContent.length > 1000 ? '400px' : '120px',
-                  maxHeight: '80vh'
-                }}
-                autoFocus
-                placeholder="Write your content in markdown..."
-              />
-              <div style={{ fontSize: '11px', color: '#6b7280', marginBottom: '8px' }}>
-                {editContent.length.toLocaleString()} characters • {Math.round(editContent.split(/\s+/).filter((w: string) => w.length > 0).length).toLocaleString()} words
-              </div>
-              <div className="flex gap-sm">
-                <button
-                  type="button"
-                  className="btn btn-primary btn-small"
-                  onClick={async () => {
-                    // Save both title and content
-                    await handleTitleSubmit();
-                    await handleContentSubmit();
-                  }}
-                >
-                  Save
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-small"
-                  onClick={() => {
-                    const contentToRestore = fullContent || page.content || page.contentPreview || '';
-                    setEditContent(contentToRestore);
-                    setIsEditingContent(false);
-                    // Also cancel title editing
-                    setEditTitle(page.title || '');
-                    setIsEditingTitle(false);
-                  }}
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div 
-              className="card-content-display card-content-expanded"
-              onDoubleClick={async () => {
-                const content = await loadFullContent();
-                setEditContent(content);
-                setIsEditingContent(true);
-                // Also enable title editing when double-clicking content
-                setIsEditingTitle(true);
-              }}
-            >
-              {(page.content || page.contentPreview) ? (
-                // Fully expanded - show complete content or load it if needed
-                fullContent ? (
-                  <ReactMarkdown>{fullContent}</ReactMarkdown>
-                ) : (
-                  <>
-                    <ReactMarkdown>{page.content || page.contentPreview}</ReactMarkdown>
-                  </>
-                )
-              ) : (
-                <div className="empty-content-placeholder">
-                  {!page.title ? (
-                    // For completely empty unsaved cards
-                    <p style={{ color: '#f59e0b', fontStyle: 'italic', textAlign: 'center' }}>
-                      Empty card - Double-click to add content
-                    </p>
-                  ) : (
-                    // For cards with titles but no content
-                    <p style={{ color: '#6b7280', fontStyle: 'italic' }}>
-                      No content yet. Double-click to add content.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+          {/* Inline Editor Mode - Primary editing experience */}
+          <InlineEditor
+            content={fullContent || page.content || page.contentPreview || ''}
+            onContentChange={handleInlineContentChange}
+            onSave={handleInlineAutoSave}
+            isLoading={isAutoSaving}
+            className="card-inline-editor"
+          />
         </div>
       )}
       

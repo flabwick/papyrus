@@ -257,4 +257,74 @@ router.post('/generate-streaming', requireAuth, async (req, res) => {
   }
 });
 
+/**
+ * POST /api/ai/generate-form
+ * Generate a form using AI with DSL instructions
+ */
+router.post('/generate-form', requireAuth, async (req, res) => {
+  try {
+    const { libraryId, workspaceId, prompt, model, position } = req.body;
+    
+    if (!libraryId || !workspaceId || !prompt) {
+      return res.status(400).json({
+        error: 'Missing required fields',
+        message: 'libraryId, workspaceId, and prompt are required'
+      });
+    }
+
+    // Import required services
+    const { AIProviderService } = require('../services/aiProviders');
+    const Form = require('../models/Form');
+    const WorkspaceForm = require('../models/WorkspaceForm');
+    
+    const aiService = new AIProviderService();
+    
+    // Get available models and select the requested one
+    const models = aiService.getAvailableModels();
+    const selectedModel = models.find(m => m.id === model) || models[0];
+    
+    if (!selectedModel) {
+      return res.status(400).json({
+        error: 'No AI models available',
+        message: 'Unable to generate form without AI model'
+      });
+    }
+    
+    // Generate form DSL using AI
+    const aiResponse = await aiService.generateContent(prompt, selectedModel.id);
+    
+    // Create timestamp for form title
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19);
+    const formTitle = `Generated Form (${timestamp})`;
+    
+    // Create new form with generated DSL
+    const newForm = await Form.create(
+      libraryId,
+      formTitle,
+      aiResponse,
+      {}
+    );
+    
+    // Add form to workspace at specified position
+    await WorkspaceForm.addFormToWorkspace(workspaceId, newForm.id, position);
+    
+    res.status(201).json({
+      success: true,
+      form: {
+        id: newForm.id,
+        title: formTitle,
+        content: aiResponse
+      },
+      message: 'Form generated successfully'
+    });
+    
+  } catch (error) {
+    console.error('❌ AI form generation error:', error);
+    res.status(500).json({
+      error: 'Failed to generate form',
+      message: error.message || 'An error occurred while generating the form'
+    });
+  }
+});
+
 module.exports = router;
